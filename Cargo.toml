@@ -1,6 +1,6 @@
 [package]
 name = "baca"
-version = "3.0.0"
+version = "3.1.0"
 edition = "2021"
 authors = ["David4rr", "ilhamdanials"]
 description = "A modern, local-first e-book reader (EPUB & PDF) built with Pure Rust & Dioxus"
@@ -21,6 +21,8 @@ chrono = { version = "0.4", features = ["serde"] }
 dirs = "5.0"
 uuid = { version = "1.10", features = ["v4", "serde"] }
 base64 = "0.22"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+urlencoding = "2.1"
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 rfd = "0.15"

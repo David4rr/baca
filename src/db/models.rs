@@ -34,6 +34,8 @@ pub struct UserSettings {
     pub font_size: u32, // 14 to 32
     pub line_height: f32, // 1.4 to 2.2
     pub margin_horizontal: u32, // 16 to 80
+    pub gemini_api_key: Option<String>,
+    pub gemini_model: Option<String>,
 }
 
 impl Default for UserSettings {
@@ -44,6 +46,34 @@ impl Default for UserSettings {
             font_size: 18,
             line_height: 1.7,
             margin_horizontal: 32,
+            gemini_api_key: None,
+            gemini_model: Some("gemini-2.5-flash".to_string()),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReadingSession {
+    pub id: String,
+    pub book_id: String,
+    pub duration_seconds: u32,
+    pub timestamp: i64,
+    pub date_str: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DailyReadingStats {
+    pub date_str: String,
+    pub minutes: u32,
+    pub day_label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BackupData {
+    pub version: String,
+    pub exported_at: i64,
+    pub books: Vec<Book>,
+    pub bookmarks: Vec<Bookmark>,
+    pub settings: UserSettings,
+    pub sessions: Vec<ReadingSession>,
 }

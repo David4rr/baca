@@ -1,11 +1,11 @@
 use dioxus::prelude::*;
-use crate::components::{FontControls, Navbar, TocDrawer};
-use crate::db::models::{Book, UserSettings};
+use crate::components::{AiExplanationModal, BackupModal, FontControls, InBookSearchModal, Navbar, StatsModal, TocDrawer};
+use crate::db::models::{BackupData, Book, DailyReadingStats, UserSettings};
 use crate::db::Database;
 use crate::engine::parse_epub;
 use crate::state::{AppState, View};
 use crate::theme::ThemeMode;
-use crate::views::{ReaderView, ShelfView};
+use crate::views::{ExploreView, ReaderView, ShelfView};
 use std::sync::Arc;
 
 #[component]
@@ -23,12 +23,13 @@ pub fn App() -> Element {
     let initial_settings = db.get_settings().unwrap_or_default();
 
     let mut state = use_hook(|| AppState::new(initial_books, initial_settings));
+    let mut stats_data = use_signal(|| Vec::<DailyReadingStats>::new());
 
     let current_theme = *state.theme.read();
     let current_view = state.current_view.read().clone();
     let settings = state.settings.read().clone();
 
-    // Import helper
+    // Import helper for local files
     let import_book = {
         let db = db.clone();
         move || {
@@ -142,19 +143,60 @@ pub fn App() -> Element {
                 let db = db.clone();
                 spawn(async move {
                     let _ = db.update_progress(&book_id, new_chapter, progress);
+                    // Record reading session increment (e.g. 30 seconds reading)
+                    let _ = db.record_reading_session(&book_id, 30);
                 });
             }
         }
     };
 
-    let db_settings = db.clone();
-    let handle_change_settings = move |new_settings: UserSettings| {
-        *state.theme.write() = ThemeMode::from_str(&new_settings.theme);
-        *state.settings.write() = new_settings.clone();
-        let db = db_settings.clone();
-        spawn(async move {
-            let _ = db.save_settings(&new_settings);
-        });
+    let change_settings = {
+        let db = db.clone();
+        move |new_settings: UserSettings| {
+            *state.theme.write() = ThemeMode::from_str(&new_settings.theme);
+            *state.settings.write() = new_settings.clone();
+            let db = db.clone();
+            spawn(async move {
+                let _ = db.save_settings(&new_settings);
+            });
+        }
+    };
+
+    let mut settings_for_font = change_settings.clone();
+    let mut settings_for_ai = change_settings.clone();
+    let mut settings_for_backup = change_settings.clone();
+
+    let db_export = db.clone();
+    let handle_export_backup = move |_| {
+        if let Ok(data) = db_export.export_backup() {
+            if let Ok(json_str) = serde_json::to_string_pretty(&data) {
+                let backup_path = Database::get_app_dir().join("baca_backup.json");
+                let _ = std::fs::write(&backup_path, json_str);
+            }
+        }
+    };
+
+    let db_restore = db.clone();
+    let handle_restore_backup = move |json_text: String| {
+        let db = db_restore.clone();
+        if let Ok(data) = serde_json::from_str::<BackupData>(&json_text) {
+            let _ = db.restore_backup(data);
+            if let Ok(books) = db.get_all_books() {
+                *state.books.write() = books;
+            }
+            if let Ok(s) = db.get_settings() {
+                *state.theme.write() = ThemeMode::from_str(&s.theme);
+                *state.settings.write() = s;
+            }
+        }
+    };
+
+    let db_stats = db.clone();
+    let handle_open_stats = move |_| {
+        if let Ok(s) = db_stats.get_7_day_stats() {
+            stats_data.set(s);
+        }
+        *state.is_stats_open.write() = true;
     };
 
     let import_for_nav = import_book.clone();
@@ -162,6 +204,7 @@ pub fn App() -> Element {
 
     let mut chapter_for_reader = update_chapter.clone();
     let mut chapter_for_toc = update_chapter.clone();
+    let mut chapter_for_search = update_chapter.clone();
 
     rsx! {
         div {
@@ -171,12 +214,19 @@ pub fn App() -> Element {
             Navbar {
                 title: match &current_view {
                     View::Reader { book, .. } => book.title.clone(),
+                    View::Explore => "Cari & Unduh Buku Online".to_string(),
                     _ => "Baca.".to_string(),
                 },
                 theme: current_theme,
                 is_reader: matches!(current_view, View::Reader { .. }),
+                is_explore: matches!(current_view, View::Explore),
                 on_back: move |_| *state.current_view.write() = View::Shelf,
+                on_explore: move |_| *state.current_view.write() = View::Explore,
                 on_import: move |_| import_for_nav(),
+                on_toggle_stats: handle_open_stats,
+                on_toggle_settings: move |_| *state.is_backup_open.write() = true,
+                on_toggle_search: move |_| *state.is_inbook_search_open.write() = true,
+                on_toggle_ai: move |_| *state.is_ai_open.write() = true,
                 on_toggle_toc: move |_| {
                     let cur = *state.is_toc_open.read();
                     *state.is_toc_open.write() = !cur;
@@ -197,6 +247,16 @@ pub fn App() -> Element {
                         on_select_book: handle_select_book,
                         on_delete_book: handle_delete,
                         on_import: move |_| import_for_shelf(),
+                    }
+                },
+                View::Explore => rsx! {
+                    ExploreView {
+                        theme: current_theme,
+                        on_import_book: move |b: Book| {
+                            let mut books = state.books.write();
+                            books.insert(0, b);
+                        },
+                        on_back: move |_| *state.current_view.write() = View::Shelf,
                     }
                 },
                 View::Reader { book, epub } => rsx! {
@@ -223,12 +283,60 @@ pub fn App() -> Element {
                         theme: current_theme,
                         is_open: *state.is_typography_open.read(),
                         on_close: move |_| *state.is_typography_open.write() = false,
-                        on_change_settings: handle_change_settings,
+                        on_change_settings: move |s| settings_for_font(s),
+                    }
+
+                    InBookSearchModal {
+                        chapters: epub.chapters.clone(),
+                        theme: current_theme,
+                        is_open: *state.is_inbook_search_open.read(),
+                        on_close: move |_| *state.is_inbook_search_open.write() = false,
+                        on_select_match: move |(ch_idx, _term)| {
+                            chapter_for_search(ch_idx);
+                        },
+                    }
+
+                    AiExplanationModal {
+                        theme: current_theme,
+                        initial_text: state.ai_term.read().clone(),
+                        api_key: settings.gemini_api_key.clone(),
+                        model: settings.gemini_model.clone(),
+                        is_open: *state.is_ai_open.read(),
+                        on_close: move |_| *state.is_ai_open.write() = false,
+                        on_save_key: {
+                            let settings = settings.clone();
+                            move |k: String| {
+                                let mut s = settings.clone();
+                                s.gemini_api_key = Some(k);
+                                settings_for_ai(s);
+                            }
+                        },
                     }
                 },
                 View::Settings => rsx! {
                     div { class: "p-8", "Settings" }
                 }
+            }
+
+            // Global Statistics Modal
+            StatsModal {
+                theme: current_theme,
+                stats: stats_data.read().clone(),
+                total_books: state.books.read().len(),
+                total_bookmarks: 0,
+                is_open: *state.is_stats_open.read(),
+                on_close: move |_| *state.is_stats_open.write() = false,
+            }
+
+            // Global Settings & Backup Modal
+            BackupModal {
+                theme: current_theme,
+                settings: settings.clone(),
+                is_open: *state.is_backup_open.read(),
+                on_close: move |_| *state.is_backup_open.write() = false,
+                on_export_json: handle_export_backup,
+                on_restore_json: handle_restore_backup,
+                on_save_settings: move |s| settings_for_backup(s),
             }
         }
     }

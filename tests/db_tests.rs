@@ -52,23 +52,47 @@ fn test_database_crud_operations() {
     assert_eq!(marks.len(), 1);
     assert_eq!(marks[0].text_snippet, "Borrow checker guarantees memory safety.");
 
-    db.delete_bookmark("mark-1").expect("Should delete bookmark");
-    let marks = db.get_bookmarks("book-123").expect("Should get bookmarks");
-    assert_eq!(marks.len(), 0);
+    // 5. Reading Sessions & 7-Day Stats
+    db.record_reading_session("book-123", 120).expect("Should record reading session");
+    db.record_reading_session("book-123", 60).expect("Should record second session");
+    let stats = db.get_7_day_stats().expect("Should get 7-day stats");
+    assert_eq!(stats.len(), 7);
+    let today_stats = stats.last().expect("Today stats exist");
+    assert_eq!(today_stats.minutes, 3); // (120+60+30)/60 = 3
 
-    // 5. Settings
+    // 6. Settings with Gemini API configuration
     let mut settings = db.get_settings().expect("Should get default settings");
     assert_eq!(settings.theme, "amoled");
 
     settings.theme = "warm".to_string();
     settings.font_size = 22;
+    settings.gemini_api_key = Some("test-api-key-123".to_string());
+    settings.gemini_model = Some("gemini-2.5-flash".to_string());
     db.save_settings(&settings).expect("Should save settings");
 
     let reloaded = db.get_settings().expect("Should reload settings");
     assert_eq!(reloaded.theme, "warm");
     assert_eq!(reloaded.font_size, 22);
+    assert_eq!(reloaded.gemini_api_key.as_deref(), Some("test-api-key-123"));
 
-    // 6. Delete book
+    // 7. Backup and Restore
+    let backup_data = db.export_backup().expect("Should export backup data");
+    assert_eq!(backup_data.books.len(), 1);
+    assert_eq!(backup_data.bookmarks.len(), 1);
+    assert_eq!(backup_data.sessions.len(), 2);
+
+    // Test restoring into fresh DB
+    let fresh_db = Database::memory().expect("Fresh in-memory DB");
+    fresh_db.restore_backup(backup_data).expect("Should restore backup");
+    let restored_books = fresh_db.get_all_books().expect("Should query restored books");
+    assert_eq!(restored_books.len(), 1);
+    assert_eq!(restored_books[0].id, "book-123");
+
+    // 8. Delete bookmark and book
+    db.delete_bookmark("mark-1").expect("Should delete bookmark");
+    let marks = db.get_bookmarks("book-123").expect("Should get bookmarks");
+    assert_eq!(marks.len(), 0);
+
     db.delete_book("book-123").expect("Should delete book");
     let books = db.get_all_books().expect("Should query books");
     assert_eq!(books.len(), 0);

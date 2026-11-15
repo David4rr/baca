@@ -11,21 +11,33 @@ Tanpa server, tanpa pelacakan (*zero telemetry*), tanpa ketergantungan webview l
 
 ---
 
-## 🌟 Fitur Utama (v3.0 Pure Rust)
+## 🌟 Fitur Utama (v3.1 Pure Rust)
 
 - **Pure Rust Engine & Dioxus UI**: Zero JavaScript overhead. Performa native, hemat memori, dan responsif instan.
 - **Cross-Platform**:
-  - 📱 **Android**: Native APK (`arm64-v8a`) dengan integrasi penyimpanan internal & folder Download.
+  - 📱 **Android Universal APK**: Mendukung arsitektur `arm64-v8a` (HP fisik) dan `x86_64` (emulator/Chromebook) dengan penanganan memori aman dan fallback SQLite tangguh.
   - 💻 **Desktop**: macOS (Apple Silicon / Intel), Windows (x86_64), dan Linux.
-- **Streaming EPUB Parser**: Ekstraksi metadata OPF, cover art, dan dekompresi bab streaming cepat tanpa bloat memory.
-- **SQLite Local Database**: Menyimpan metadata buku, progres baca per chapter, bookmark, dan preferensi pengguna dengan transaksi ACID.
+- **🌐 Internet Archive Book Downloader & Explorer**:
+  - Cari dan telusuri jutaan buku domain publik dari Archive.org berdasarkan judul, pengarang, atau genre (Sastra, Filsafat, Sains, Sejarah, Indonesia).
+  - Tampilan cover visual dan unduh langsung berkas EPUB ke rak buku lokal dalam satu klik.
+- **🔍 In-Book Fulltext Search**:
+  - Pencarian kata atau frasa instan di seluruh bab buku dengan cuplikan konteks dan navigasi langsung ke posisi bab yang sesuai.
+- **✨ Gemini AI Explanations**:
+  - Analisis dan penjelasan istilah, konsep, atau kutipan kalimat langsung di dalam buku menggunakan model Google Gemini AI (`gemini-2.5-flash` / `gemini-1.5-pro`).
+  - Konfigurasi API Key mandiri dan aman tersimpan di SQLite lokal.
+- **📊 Reading Activity & Statistics**:
+  - Pelacakan durasi membaca harian otomatis.
+  - Ringkasan aktivitas 7 hari terakhir, total menit membaca, streak hari berturut-turut, dan grafik batang visual.
+- **💾 Library Backup & Restore**:
+  - Ekspor seluruh basis data (koleksi buku, bookmark, progres, sesi membaca, pengaturan) ke format JSON terenkapsulasi.
+  - Pemulihan data instan (restore) tanpa takut kehilangan catatan bacaan.
+- **Streaming EPUB Parser & Sanitizer**:
+  - Ekstraksi metadata OPF, cover art, dan dekompresi bab streaming cepat tanpa bloat memory.
+  - Built-in HTML Sanitizer untuk membersihkan tag berbahaya (`<script>`, `<iframe>`, `javascript:` URI) dari berkas EPUB.
 - **Modern Editorial Aesthetic**:
   - Tema: **AMOLED Pitch Black**, **Warm Paper**, **Slate**, dan **Light Minimalist**.
   - Tipografi dinamis dengan kontrol ukuran font instan.
   - Table of Contents (TOC) drawer & navigasi bab mulus.
-- **Security & Privacy First**:
-  - Built-in HTML Sanitizer untuk membersihkan tag berbahaya (`<script>`, `<iframe>`, `javascript:` URI) dari berkas EPUB.
-  - 100% offline tanpa koneksi cloud wajib.
 
 ---
 

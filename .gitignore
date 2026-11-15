@@ -5,5 +5,6 @@ Cargo.lock
 *.db
 *.db-journal
 *.apk
+*.tar.gz
 node_modules/
 dist/
