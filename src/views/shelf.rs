@@ -96,7 +96,7 @@ pub fn ShelfView(
                     for b in filtered_books {
                         BookCard {
                             key: "{b.id}",
-                            book: b,
+                            book: b.clone(),
                             theme: theme,
                             on_select: move |selected| on_select_book.call(selected),
                             on_delete: move |id| on_delete_book.call(id),

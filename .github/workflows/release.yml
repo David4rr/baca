@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
+          - os: macos-13
             target: aarch64-apple-darwin
             binary_name: baca
             archive_name: baca-macos-arm64.tar.gz
@@ -133,7 +133,7 @@ jobs:
             Baca has been completely reimagined and rewritten in **100% Pure Rust** with **Dioxus 0.6**.
 
             ### 🚀 Key Highlights:
-            - **Pure Rust Performance:** Instantaneous startup, ultra-low memory usage, zero JVM/browser bloat.
+            - **Pure Rust Performance:** Instantaneous startup, ultra-low memory usage (~4.6MB binary), zero JVM/browser bloat.
             - **Modern Editorial Design:** 4 high-contrast and eye-ease themes (AMOLED Dark, Warm Paper, Midnight Slate, Pure Light).
             - **Local-First & Zero-Telemetry:** 100% offline; your books and reading data are stored locally in SQLite with zero network tracking.
             - **Rich Reader Experience:** Table of Contents drawer, customizable typography (font size, font family, line height), reading progress persistence.
