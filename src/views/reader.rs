@@ -52,11 +52,14 @@ pub fn ReaderView(
                 // Circular Back Button (<)
                 button {
                     class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all",
-                    style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                    style: "width: 40px; height: 40px; min-width: 40px; min-height: 40px; background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
                     title: "Kembali ke Rak Buku",
                     onclick: move |_| on_back.call(()),
                     svg {
                         class: "w-4 h-4",
+                        width: "16",
+                        height: "16",
+                        style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                         view_box: "0 0 24 24",
                         fill: "none",
                         stroke: "currentColor",
@@ -74,11 +77,14 @@ pub fn ReaderView(
                     // In-Book Search
                     button {
                         class: "w-9 h-9 rounded-full flex items-center justify-center apple-tap opacity-70 hover:opacity-100 transition-all",
-                        style: "color: {theme.text_primary()};",
+                        style: "width: 36px; height: 36px; min-width: 36px; min-height: 36px; color: {theme.text_primary()};",
                         title: "Cari Teks dalam Bab",
                         onclick: move |_| on_toggle_search.call(()),
                         svg {
                             class: "w-4 h-4",
+                            width: "16",
+                            height: "16",
+                            style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",
@@ -93,11 +99,14 @@ pub fn ReaderView(
                     // Gemini AI
                     button {
                         class: "w-9 h-9 rounded-full flex items-center justify-center apple-tap opacity-70 hover:opacity-100 transition-all",
-                        style: "color: {theme.text_primary()};",
+                        style: "width: 36px; height: 36px; min-width: 36px; min-height: 36px; color: {theme.text_primary()};",
                         title: "Tanya AI (Gemini)",
                         onclick: move |_| on_toggle_ai.call(()),
                         svg {
                             class: "w-4 h-4",
+                            width: "16",
+                            height: "16",
+                            style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",
@@ -111,7 +120,7 @@ pub fn ReaderView(
                     // Typography & Appearance ("Aa")
                     button {
                         class: "w-9 h-9 rounded-full flex items-center justify-center apple-tap font-serif text-[15px] font-medium opacity-80 hover:opacity-100 transition-all",
-                        style: "color: {theme.text_primary()};",
+                        style: "width: 36px; height: 36px; min-width: 36px; min-height: 36px; color: {theme.text_primary()};",
                         title: "Pengaturan Tipografi & Tampilan",
                         onclick: move |_| on_toggle_typography.call(()),
                         "Aa"
@@ -120,11 +129,14 @@ pub fn ReaderView(
                     // Table of Contents (≡)
                     button {
                         class: "w-9 h-9 rounded-full flex items-center justify-center apple-tap opacity-70 hover:opacity-100 transition-all",
-                        style: "color: {theme.text_primary()};",
+                        style: "width: 36px; height: 36px; min-width: 36px; min-height: 36px; color: {theme.text_primary()};",
                         title: "Daftar Bab & Isi",
                         onclick: move |_| on_toggle_toc.call(()),
                         svg {
                             class: "w-4 h-4",
+                            width: "16",
+                            height: "16",
+                            style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",
@@ -183,6 +195,9 @@ pub fn ReaderView(
                                 onclick: move |_| on_toggle_ai.call(()),
                                 svg {
                                     class: "w-3 h-3 text-amber-500",
+                                    width: "12",
+                                    height: "12",
+                                    style: "width: 12px; height: 12px; min-width: 12px; min-height: 12px;",
                                     view_box: "0 0 24 24",
                                     fill: "none",
                                     stroke: "currentColor",
@@ -288,6 +303,9 @@ pub fn ReaderView(
                         onclick: move |_| on_change_theme.call("light".to_string()),
                         svg {
                             class: "w-4 h-4",
+                            width: "16",
+                            height: "16",
+                            style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",
@@ -316,6 +334,9 @@ pub fn ReaderView(
                         onclick: move |_| on_change_theme.call("warm".to_string()),
                         svg {
                             class: "w-4 h-4",
+                            width: "16",
+                            height: "16",
+                            style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",
@@ -339,6 +360,9 @@ pub fn ReaderView(
                         onclick: move |_| on_change_theme.call("amoled".to_string()),
                         svg {
                             class: "w-4 h-4",
+                            width: "16",
+                            height: "16",
+                            style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",

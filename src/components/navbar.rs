@@ -32,11 +32,14 @@ pub fn Navbar(
                 class: "flex items-center gap-3",
                 button {
                     class: "w-9 h-9 rounded-full border flex items-center justify-center apple-tap transition-all shadow-sm",
-                    style: "border-color: {theme.border_color()}; background-color: {theme.surface_color()}; color: {theme.text_primary()};",
+                    style: "width: 36px; height: 36px; min-width: 36px; min-height: 36px; border-color: {theme.border_color()}; background-color: {theme.surface_color()}; color: {theme.text_primary()};",
                     title: "Kembali ke Rak",
                     onclick: move |_| on_back.call(()),
                     svg {
                         class: "w-4 h-4",
+                        width: "16",
+                        height: "16",
+                        style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                         view_box: "0 0 24 24",
                         fill: "none",
                         stroke: "currentColor",
@@ -58,10 +61,14 @@ pub fn Navbar(
                 if is_reader {
                     button {
                         class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-70 hover:opacity-100",
+                        style: "width: 32px; height: 32px; min-width: 32px; min-height: 32px;",
                         title: "Cari Teks",
                         onclick: move |_| on_toggle_search.call(()),
                         svg {
                             class: "w-3.5 h-3.5",
+                            width: "14",
+                            height: "14",
+                            style: "width: 14px; height: 14px; min-width: 14px; min-height: 14px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",
@@ -72,10 +79,14 @@ pub fn Navbar(
                     }
                     button {
                         class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-70 hover:opacity-100",
+                        style: "width: 32px; height: 32px; min-width: 32px; min-height: 32px;",
                         title: "Tanya AI",
                         onclick: move |_| on_toggle_ai.call(()),
                         svg {
                             class: "w-3.5 h-3.5",
+                            width: "14",
+                            height: "14",
+                            style: "width: 14px; height: 14px; min-width: 14px; min-height: 14px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",
@@ -85,16 +96,21 @@ pub fn Navbar(
                     }
                     button {
                         class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap font-serif text-xs font-semibold opacity-70 hover:opacity-100",
+                        style: "width: 32px; height: 32px; min-width: 32px; min-height: 32px;",
                         title: "Tipografi",
                         onclick: move |_| on_toggle_typography.call(()),
                         "Aa"
                     }
                     button {
                         class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-70 hover:opacity-100",
+                        style: "width: 32px; height: 32px; min-width: 32px; min-height: 32px;",
                         title: "Daftar Bab",
                         onclick: move |_| on_toggle_toc.call(()),
                         svg {
                             class: "w-3.5 h-3.5",
+                            width: "14",
+                            height: "14",
+                            style: "width: 14px; height: 14px; min-width: 14px; min-height: 14px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",

@@ -19,7 +19,19 @@ pub fn App() -> Element {
         }
     });
 
-    let initial_books = db.get_all_books().unwrap_or_default();
+    let initial_books = {
+        let existing = db.get_all_books().unwrap_or_default();
+        if existing.is_empty() {
+            let app_dir = Database::get_app_dir();
+            let starters = crate::engine::ensure_starter_library(&app_dir);
+            for b in &starters {
+                let _ = db.insert_or_update_book(b);
+            }
+            starters
+        } else {
+            existing
+        }
+    };
     let initial_settings = db.get_settings().unwrap_or_default();
 
     let mut state = AppState::new(initial_books, initial_settings);
@@ -207,6 +219,7 @@ pub fn App() -> Element {
     let mut chapter_for_search = update_chapter.clone();
 
     rsx! {
+        style { dangerous_inner_html: include_str!("../assets/styles/bundle.css") }
         div {
             class: "app-root flex flex-col min-h-screen transition-colors duration-300 font-sans selection:bg-amber-200",
             style: "background-color: {current_theme.bg_color()}; color: {current_theme.text_primary()};",

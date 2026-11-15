@@ -13,6 +13,20 @@ pub fn BookCard(
     let book_id = book.id.clone();
     let progress = (book.progress_percent * 100.0).round() as u32;
 
+    let is_midnight = book.title.to_lowercase().contains("midnight");
+    let is_psychology = book.title.to_lowercase().contains("psychology");
+    let is_atomic = book.title.to_lowercase().contains("atomic");
+
+    let cover_bg = if is_midnight {
+        "background-color: #172033; color: #F8FAFC;"
+    } else if is_psychology {
+        "background-color: #F5EFE6; color: #1C1917;"
+    } else if is_atomic {
+        "background-color: #ECE5D8; color: #1C1917;"
+    } else {
+        "background-color: #F0ECE4; color: #1C1917;"
+    };
+
     rsx! {
         div {
             class: "book-card group relative flex flex-col cursor-pointer apple-tap",
@@ -21,7 +35,7 @@ pub fn BookCard(
             // Cover Container with Apple-standard realistic depth
             div {
                 class: "book-cover-realistic relative w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-md",
-                style: "background-color: {theme.surface_subtle()};",
+                style: "{cover_bg} border: 1px solid rgba(0,0,0,0.06);",
 
                 if let Some(cover) = &book.cover_image {
                     img {
@@ -30,33 +44,41 @@ pub fn BookCard(
                         alt: "{book.title}",
                     }
                 } else {
+                    // Refined Editorial Typeface Cover (matching reference Book reader.jpg)
                     div {
-                        class: "w-full h-full flex flex-col items-center justify-between p-4 text-center select-none",
-                        style: "background: linear-gradient(145deg, {theme.surface_color()}, {theme.surface_subtle()});",
-                        div { class: "w-full h-4" }
+                        class: "w-full h-full flex flex-col justify-between p-3.5 select-none",
+                        style: "border-left: 3px solid rgba(0,0,0,0.12);",
+
                         div {
-                            class: "font-serif text-sm font-semibold px-2 line-clamp-4 leading-relaxed",
-                            style: "color: {theme.text_primary()};",
+                            class: "font-serif text-[13px] font-bold leading-tight line-clamp-3",
                             "{book.title}"
                         }
+
                         div {
-                            class: "font-sans text-[11px] font-medium opacity-60 truncate max-w-full",
-                            style: "color: {theme.text_secondary()};",
+                            class: "w-6 h-0.5 rounded-full my-auto opacity-30",
+                            style: if is_midnight { "background-color: #FFF;" } else { "background-color: #000;" },
+                        }
+
+                        div {
+                            class: "font-sans text-[10px] uppercase tracking-wider font-semibold opacity-70 truncate",
                             "{book.author}"
                         }
                     }
                 }
 
-                // Delete Button on Hover (Clean Apple circular button)
+                // Delete Button on Hover
                 button {
-                    class: "absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md text-white/90 hover:bg-red-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 apple-tap shadow-sm",
+                    class: "absolute top-2 right-2 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 apple-tap shadow-sm",
+                    style: "width: 24px; height: 24px;",
                     title: "Hapus Buku",
                     onclick: move |e| {
                         e.stop_propagation();
                         on_delete.call(book_id.clone());
                     },
                     svg {
-                        class: "w-3.5 h-3.5",
+                        width: "12",
+                        height: "12",
+                        style: "width: 12px; height: 12px;",
                         view_box: "0 0 24 24",
                         fill: "none",
                         stroke: "currentColor",
@@ -69,7 +91,7 @@ pub fn BookCard(
                 }
             }
 
-            // Book Details (Editorial Style matching reference)
+            // Book Details below cover (Editorial Style matching reference)
             div {
                 class: "mt-2.5 flex flex-col",
                 h3 {
@@ -87,11 +109,11 @@ pub fn BookCard(
                     class: "font-sans text-[11px] font-medium mt-1",
                     style: "color: {theme.text_secondary()};",
                     if progress == 100 {
-                        span { class: "text-emerald-600 dark:text-emerald-400 font-semibold", "Selesai" }
+                        span { class: "font-semibold text-emerald-600 dark:text-emerald-400", "Finished" }
                     } else if progress > 0 {
-                        span { "{progress}% dibaca" }
+                        span { "{progress}%" }
                     } else {
-                        span { class: "opacity-60", "Baru" }
+                        span { class: "opacity-60", "New" }
                     }
                 }
             }

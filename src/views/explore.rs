@@ -126,11 +126,14 @@ pub fn ExploreView(
                     class: "flex items-center gap-3.5",
                     button {
                         class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all flex-shrink-0",
-                        style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                        style: "width: 40px; height: 40px; min-width: 40px; min-height: 40px; background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
                         title: "Kembali ke Rak Buku",
                         onclick: move |_| on_back.call(()),
                         svg {
                             class: "w-4 h-4",
+                            width: "16",
+                            height: "16",
+                            style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",
@@ -172,6 +175,9 @@ pub fn ExploreView(
                         class: "absolute left-4 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none",
                         svg {
                             class: "w-4 h-4",
+                            width: "16",
+                            height: "16",
+                            style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",
@@ -304,6 +310,9 @@ pub fn ExploreView(
                                             } else if is_success {
                                                 svg {
                                                     class: "w-3.5 h-3.5",
+                                                    width: "14",
+                                                    height: "14",
+                                                    style: "width: 14px; height: 14px; min-width: 14px; min-height: 14px;",
                                                     view_box: "0 0 24 24",
                                                     fill: "none",
                                                     stroke: "currentColor",
@@ -314,6 +323,9 @@ pub fn ExploreView(
                                             } else {
                                                 svg {
                                                     class: "w-3.5 h-3.5",
+                                                    width: "14",
+                                                    height: "14",
+                                                    style: "width: 14px; height: 14px; min-width: 14px; min-height: 14px;",
                                                     view_box: "0 0 24 24",
                                                     fill: "none",
                                                     stroke: "currentColor",

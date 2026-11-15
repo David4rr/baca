@@ -66,11 +66,14 @@ pub fn ShelfView(
                     // Import Button (+)
                     button {
                         class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all",
-                        style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                        style: "width: 40px; height: 40px; min-width: 40px; min-height: 40px; background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
                         title: "Import Buku (EPUB)",
                         onclick: move |_| on_import.call(()),
                         svg {
                             class: "w-4 h-4",
+                            width: "16",
+                            height: "16",
+                            style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",
@@ -85,7 +88,7 @@ pub fn ShelfView(
                     // Circular Search Button (matching reference)
                     button {
                         class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all",
-                        style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                        style: "width: 40px; height: 40px; min-width: 40px; min-height: 40px; background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
                         title: "Cari Buku",
                         onclick: move |_| {
                             let cur = *is_search_visible.read();
@@ -93,6 +96,9 @@ pub fn ShelfView(
                         },
                         svg {
                             class: "w-4 h-4",
+                            width: "16",
+                            height: "16",
+                            style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",
@@ -124,6 +130,9 @@ pub fn ShelfView(
                             class: "absolute left-4 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none",
                             svg {
                                 class: "w-4 h-4",
+                                width: "16",
+                                height: "16",
+                                style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                                 view_box: "0 0 24 24",
                                 fill: "none",
                                 stroke: "currentColor",
@@ -144,9 +153,12 @@ pub fn ShelfView(
 
                     div {
                         class: "w-16 h-16 rounded-full flex items-center justify-center mb-4",
-                        style: "background-color: {theme.surface_subtle()}; color: {theme.text_secondary()};",
+                        style: "width: 64px; height: 64px; min-width: 64px; min-height: 64px; background-color: {theme.surface_subtle()}; color: {theme.text_secondary()};",
                         svg {
                             class: "w-8 h-8",
+                            width: "32",
+                            height: "32",
+                            style: "width: 32px; height: 32px; min-width: 32px; min-height: 32px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",
@@ -249,11 +261,14 @@ pub fn ShelfView(
                                                 // 3-dots Context Menu Button (matching reference)
                                                 button {
                                                     class: "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 apple-tap transition-colors",
-                                                    style: "background-color: {theme.surface_subtle()}; color: {theme.text_secondary()};",
+                                                    style: "width: 32px; height: 32px; min-width: 32px; min-height: 32px; background-color: {theme.surface_subtle()}; color: {theme.text_secondary()};",
                                                     title: "Hapus Buku",
                                                     onclick: move |_| on_delete_book.call(book_delete.id.clone()),
                                                     svg {
                                                         class: "w-4 h-4",
+                                                        width: "16",
+                                                        height: "16",
+                                                        style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                                                         view_box: "0 0 24 24",
                                                         fill: "currentColor",
                                                         circle { cx: "5", cy: "12", r: "2" }
@@ -312,9 +327,12 @@ pub fn ShelfView(
                                         span { "Lanjutkan Membaca" }
                                         div {
                                             class: "w-7 h-7 rounded-full flex items-center justify-center transition-transform group-hover:translate-x-0.5",
-                                            style: "background-color: rgba(255,255,255,0.15);",
+                                            style: "width: 28px; height: 28px; min-width: 28px; min-height: 28px; background-color: rgba(255,255,255,0.15);",
                                             svg {
                                                 class: "w-3.5 h-3.5",
+                                                width: "14",
+                                                height: "14",
+                                                style: "width: 14px; height: 14px; min-width: 14px; min-height: 14px;",
                                                 view_box: "0 0 24 24",
                                                 fill: "none",
                                                 stroke: "currentColor",
@@ -393,7 +411,7 @@ pub fn ShelfView(
             // 6. Floating Apple Island Dock (Bottom Navigation Bar matching reference)
             div {
                 class: "fixed bottom-6 left-1/2 -translate-x-1/2 z-40 rounded-full px-6 py-3 flex items-center gap-7 sm:gap-9 shadow-lg border backdrop-blur-2xl transition-all duration-300",
-                style: "background-color: {theme.surface_color()}E6; border-color: {theme.border_color()}; box-shadow: 0 16px 40px rgba(0,0,0,0.08);",
+                style: "position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 40; border-radius: 9999px; padding: 10px 24px; display: flex; align-items: center; gap: 28px; background-color: {theme.surface_color()}EE; border: 1px solid {theme.border_color()}; box-shadow: 0 16px 40px rgba(0,0,0,0.12); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px);",
 
                 // Home / Shelf (Active)
                 button {
@@ -402,6 +420,9 @@ pub fn ShelfView(
                     title: "Rak Buku",
                     svg {
                         class: "w-5 h-5",
+                        width: "20",
+                        height: "20",
+                        style: "width: 20px; height: 20px; min-width: 20px; min-height: 20px;",
                         view_box: "0 0 24 24",
                         fill: "currentColor",
                         path { d: "M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" }
@@ -416,6 +437,9 @@ pub fn ShelfView(
                     onclick: move |_| on_explore.call(()),
                     svg {
                         class: "w-5 h-5",
+                        width: "20",
+                        height: "20",
+                        style: "width: 20px; height: 20px; min-width: 20px; min-height: 20px;",
                         view_box: "0 0 24 24",
                         fill: "none",
                         stroke: "currentColor",
@@ -436,6 +460,9 @@ pub fn ShelfView(
                     onclick: move |_| on_stats.call(()),
                     svg {
                         class: "w-5 h-5",
+                        width: "20",
+                        height: "20",
+                        style: "width: 20px; height: 20px; min-width: 20px; min-height: 20px;",
                         view_box: "0 0 24 24",
                         fill: "none",
                         stroke: "currentColor",
@@ -456,6 +483,9 @@ pub fn ShelfView(
                     onclick: move |_| on_settings.call(()),
                     svg {
                         class: "w-5 h-5",
+                        width: "20",
+                        height: "20",
+                        style: "width: 20px; height: 20px; min-width: 20px; min-height: 20px;",
                         view_box: "0 0 24 24",
                         fill: "none",
                         stroke: "currentColor",

@@ -40,9 +40,12 @@ pub fn BackupModal(
                         class: "flex items-center gap-2.5",
                         div {
                             class: "w-8 h-8 rounded-full flex items-center justify-center",
-                            style: "background-color: {theme.surface_subtle()}; color: {theme.text_primary()};",
+                            style: "width: 32px; height: 32px; min-width: 32px; min-height: 32px; background-color: {theme.surface_subtle()}; color: {theme.text_primary()};",
                             svg {
                                 class: "w-4 h-4",
+                                width: "16",
+                                height: "16",
+                                style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                                 view_box: "0 0 24 24",
                                 fill: "none",
                                 stroke: "currentColor",
@@ -67,10 +70,13 @@ pub fn BackupModal(
                     }
                     button {
                         class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-60 hover:opacity-100 transition-all",
-                        style: "background-color: {theme.surface_subtle()}; color: {theme.text_primary()};",
+                        style: "width: 32px; height: 32px; min-width: 32px; min-height: 32px; background-color: {theme.surface_subtle()}; color: {theme.text_primary()};",
                         onclick: move |_| on_close.call(()),
                         svg {
                             class: "w-4 h-4",
+                            width: "16",
+                            height: "16",
+                            style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
                             view_box: "0 0 24 24",
                             fill: "none",
                             stroke: "currentColor",
@@ -132,6 +138,9 @@ pub fn BackupModal(
                                     },
                                     svg {
                                         class: "w-3.5 h-3.5",
+                                        width: "14",
+                                        height: "14",
+                                        style: "width: 14px; height: 14px; min-width: 14px; min-height: 14px;",
                                         view_box: "0 0 24 24",
                                         fill: "none",
                                         stroke: "currentColor",
