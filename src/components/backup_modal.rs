@@ -24,163 +24,213 @@ pub fn BackupModal(
 
     rsx! {
         div {
-            class: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in",
+            class: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in",
             onclick: move |_| on_close.call(()),
 
             div {
-                class: "w-full max-w-lg max-h-[85vh] rounded-3xl border shadow-2xl flex flex-col overflow-hidden",
-                style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                class: "w-full max-w-lg max-h-[85vh] rounded-[28px] border shadow-2xl flex flex-col overflow-hidden animate-slide-up",
+                style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()}; box-shadow: {theme.card_shadow()};",
                 onclick: move |e| e.stop_propagation(),
 
                 // Header
                 div {
-                    class: "p-4 border-b flex items-center justify-between",
+                    class: "p-5 border-b flex items-center justify-between",
                     style: "border-color: {theme.border_color()};",
                     div {
-                        class: "flex items-center gap-2",
-                        span { class: "text-lg", "⚙️" }
-                        h3 { class: "font-bold text-sm", "Pengaturan & Backup Data" }
+                        class: "flex items-center gap-2.5",
+                        div {
+                            class: "w-8 h-8 rounded-full flex items-center justify-center",
+                            style: "background-color: {theme.surface_subtle()}; color: {theme.text_primary()};",
+                            svg {
+                                class: "w-4 h-4",
+                                view_box: "0 0 24 24",
+                                fill: "none",
+                                stroke: "currentColor",
+                                stroke_width: "2",
+                                stroke_linecap: "round",
+                                stroke_linejoin: "round",
+                                line { x1: "4", y1: "21", x2: "4", y2: "14" }
+                                line { x1: "4", y1: "10", x2: "4", y2: "3" }
+                                line { x1: "12", y1: "21", x2: "12", y2: "12" }
+                                line { x1: "12", y1: "8", x2: "12", y2: "3" }
+                                line { x1: "20", y1: "21", x2: "20", y2: "16" }
+                                line { x1: "20", y1: "12", x2: "20", y2: "3" }
+                                line { x1: "1", y1: "14", x2: "7", y2: "14" }
+                                line { x1: "9", y1: "8", x2: "15", y2: "8" }
+                                line { x1: "17", y1: "16", x2: "23", y2: "16" }
+                            }
+                        }
+                        div {
+                            h3 { class: "font-serif text-lg font-medium", "Pengaturan & Cadangan" }
+                            p { class: "font-sans text-[11px] opacity-60", "Kelola data & preferensi aplikasi" }
+                        }
                     }
                     button {
-                        class: "p-1.5 rounded-full hover:bg-white/10 opacity-60 hover:opacity-100 text-sm font-bold",
+                        class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-60 hover:opacity-100 transition-all",
+                        style: "background-color: {theme.surface_subtle()}; color: {theme.text_primary()};",
                         onclick: move |_| on_close.call(()),
-                        "✕"
+                        svg {
+                            class: "w-4 h-4",
+                            view_box: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            stroke_width: "2",
+                            line { x1: "18", y1: "6", x2: "6", y2: "18" }
+                            line { x1: "6", y1: "6", x2: "18", y2: "18" }
+                        }
                     }
                 }
 
-                // Tabs
+                // Apple Segmented Tabs
                 div {
-                    class: "flex border-b text-xs font-bold",
-                    style: "border-color: {theme.border_color()};",
+                    class: "p-3 border-b flex gap-2",
+                    style: "border-color: {theme.border_color()}; background-color: {theme.surface_subtle()};",
                     button {
-                        class: "flex-1 py-2.5 text-center transition-colors border-b-2",
+                        class: "flex-1 py-2 text-center rounded-xl text-xs font-sans font-medium apple-tap transition-all shadow-sm",
                         style: if tab() == "backup" {
-                            format!("border-color: {}; color: {};", theme.accent_color(), theme.accent_color())
+                            format!("background-color: {}; color: {};", theme.accent_color(), theme.accent_contrast_text())
                         } else {
-                            "border-color: transparent; opacity: 0.6;".to_string()
+                            format!("background-color: transparent; color: {};", theme.text_secondary())
                         },
                         onclick: move |_| tab.set("backup".to_string()),
-                        "💾 Backup & Restore"
+                        "Cadangkan & Pulihkan"
                     }
                     button {
-                        class: "flex-1 py-2.5 text-center transition-colors border-b-2",
+                        class: "flex-1 py-2 text-center rounded-xl text-xs font-sans font-medium apple-tap transition-all shadow-sm",
                         style: if tab() == "ai" {
-                            format!("border-color: {}; color: {};", theme.accent_color(), theme.accent_color())
+                            format!("background-color: {}; color: {};", theme.accent_color(), theme.accent_contrast_text())
                         } else {
-                            "border-color: transparent; opacity: 0.6;".to_string()
+                            format!("background-color: transparent; color: {};", theme.text_secondary())
                         },
                         onclick: move |_| tab.set("ai".to_string()),
-                        "✨ Konfigurasi Gemini AI"
-                    }
-                }
-
-                // Status Message Banner
-                if let Some(msg) = status_msg() {
-                    div {
-                        class: "p-3 mx-4 mt-3 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs flex justify-between",
-                        span { "{msg}" }
-                        button { class: "font-bold opacity-70", onclick: move |_| status_msg.set(None), "✕" }
+                        "Konfigurasi AI Gemini"
                     }
                 }
 
                 // Content
                 div {
-                    class: "p-5 flex-1 overflow-y-auto space-y-4",
+                    class: "p-6 flex-1 overflow-y-auto space-y-5",
 
                     if tab() == "backup" {
                         div {
-                            class: "space-y-4",
-                            // Export Section
+                            class: "space-y-5 animate-fade-in",
+
+                            // Export Block
                             div {
-                                class: "p-4 rounded-2xl bg-black/20 border flex flex-col gap-2",
-                                style: "border-color: {theme.border_color()};",
-                                h4 { class: "text-sm font-bold", "Ekspor Cadangan Koleksi" }
-                                p { class: "text-xs opacity-60 leading-relaxed", "Unduh cadangan data rak buku, bookmark, dan pengaturan dalam format JSON terenkripsi lokal." }
+                                class: "p-4 rounded-2xl border flex flex-col gap-3",
+                                style: "background-color: {theme.surface_subtle()}; border-color: {theme.border_color()};",
+                                div {
+                                    h4 { class: "font-serif text-sm font-semibold", "Ekspor Cadangan Pustaka" }
+                                    p { class: "font-sans text-xs opacity-70 leading-relaxed", "Simpan seluruh daftar buku, posisi membaca, catatan bookmark, dan statistik ke berkas JSON lokal." }
+                                }
                                 button {
-                                    class: "mt-1 py-2 px-4 rounded-xl text-xs font-bold self-start transition-all",
-                                    style: format!("background-color: {}; color: #000;", theme.accent_color()),
+                                    class: "py-2.5 px-4 rounded-xl text-xs font-sans font-semibold flex items-center justify-center gap-2 shadow-sm apple-tap transition-all",
+                                    style: "background-color: {theme.accent_color()}; color: {theme.accent_contrast_text()};",
                                     onclick: move |_| {
                                         on_export_json.call(());
-                                        status_msg.set(Some("Cadangan JSON berhasil diekspor!".to_string()));
+                                        status_msg.set(Some("Cadangan JSON berhasil diekspor ke folder aplikasi!".to_string()));
                                     },
-                                    "📥 Ekspor Data JSON"
+                                    svg {
+                                        class: "w-3.5 h-3.5",
+                                        view_box: "0 0 24 24",
+                                        fill: "none",
+                                        stroke: "currentColor",
+                                        stroke_width: "2",
+                                        path { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }
+                                        polyline { points: "7 10 12 15 17 10" }
+                                        line { x1: "12", y1: "15", x2: "12", y2: "3" }
+                                    }
+                                    span { "Ekspor Berkas Cadangan (.JSON)" }
                                 }
                             }
 
-                            // Restore Section
+                            // Restore Block
                             div {
-                                class: "p-4 rounded-2xl bg-black/20 border flex flex-col gap-2",
-                                style: "border-color: {theme.border_color()};",
-                                h4 { class: "text-sm font-bold", "Pulihkan Data dari Cadangan" }
-                                p { class: "text-xs opacity-60", "Tempelkan teks data JSON cadangan Anda di bawah ini:" }
+                                class: "p-4 rounded-2xl border flex flex-col gap-3",
+                                style: "background-color: {theme.surface_subtle()}; border-color: {theme.border_color()};",
+                                div {
+                                    h4 { class: "font-serif text-sm font-semibold", "Pulihkan Data Cadangan" }
+                                    p { class: "font-sans text-xs opacity-70 leading-relaxed", "Tempelkan teks data JSON cadangan Anda untuk memulihkan seluruh koleksi rak dan progres membaca." }
+                                }
                                 textarea {
-                                    class: "w-full h-24 p-2 text-xs rounded-xl bg-black/40 border outline-none font-mono",
+                                    class: "w-full p-3 rounded-xl border text-xs font-mono outline-none resize-none bg-white dark:bg-stone-900",
                                     style: "border-color: {theme.border_color()};",
+                                    rows: "4",
                                     placeholder: "Tempelkan teks data JSON cadangan Anda di sini...",
                                     value: "{restore_text}",
                                     oninput: move |e| restore_text.set(e.value()),
                                 }
                                 button {
-                                    class: "py-2 px-4 rounded-xl text-xs font-bold self-start transition-all border border-white/20 hover:bg-white/10",
+                                    class: "py-2.5 px-4 rounded-xl text-xs font-sans font-semibold border apple-tap transition-all shadow-sm disabled:opacity-40 disabled:pointer-events-none",
+                                    style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                                    disabled: restore_text().trim().is_empty(),
                                     onclick: move |_| {
                                         let text = restore_text().trim().to_string();
-                                        if text.is_empty() {
-                                            status_msg.set(Some("Silakan tempel teks JSON terlebih dahulu.".to_string()));
-                                            return;
-                                        }
                                         on_restore_json.call(text);
                                         restore_text.set("".to_string());
-                                        status_msg.set(Some("Data perpustakaan berhasil dipulihkan!".to_string()));
+                                        status_msg.set(Some("Data cadangan berhasil dipulihkan!".to_string()));
                                     },
-                                    "📤 Pulihkan Koleksi"
+                                    "Pulihkan Data dari Teks"
                                 }
                             }
                         }
-                    } else if tab() == "ai" {
+                    } else {
                         div {
-                            class: "space-y-4",
+                            class: "space-y-4 animate-fade-in",
                             div {
-                                class: "flex flex-col gap-1.5",
-                                label { class: "text-xs font-bold opacity-80", "Gemini API Key" }
+                                class: "p-4 rounded-2xl border space-y-3",
+                                style: "background-color: {theme.surface_subtle()}; border-color: {theme.border_color()};",
+                                div {
+                                    h4 { class: "font-serif text-sm font-semibold", "Pengaturan API Key Gemini" }
+                                    p { class: "font-sans text-xs opacity-70 leading-relaxed", "Kunci API disimpan secara lokal di basis data SQLite pada perangkat Anda." }
+                                }
                                 input {
                                     r#type: "password",
-                                    class: "w-full px-3 py-2 text-xs rounded-xl border bg-black/20 outline-none",
+                                    class: "w-full px-3.5 py-2.5 rounded-xl border text-xs font-mono outline-none bg-white dark:bg-stone-900",
                                     style: "border-color: {theme.border_color()};",
                                     placeholder: "AIzaSy...",
                                     value: "{api_key_val}",
                                     oninput: move |e| api_key_val.set(e.value()),
                                 }
-                                p { class: "text-[10px] opacity-50", "Dapatkan API Key gratis di aistudio.google.com" }
                             }
 
                             div {
-                                class: "flex flex-col gap-1.5",
-                                label { class: "text-xs font-bold opacity-80", "Pilihan Model AI" }
+                                class: "p-4 rounded-2xl border space-y-3",
+                                style: "background-color: {theme.surface_subtle()}; border-color: {theme.border_color()};",
+                                div {
+                                    h4 { class: "font-serif text-sm font-semibold", "Pilihan Model AI" }
+                                    p { class: "font-sans text-xs opacity-70 leading-relaxed", "Pilih model kecerdasan buatan Google untuk kecepatan atau penalaran mendalam." }
+                                }
                                 select {
-                                    class: "w-full px-3 py-2 text-xs rounded-xl border bg-black/40 outline-none",
-                                    style: "border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                                    class: "w-full px-3.5 py-2.5 rounded-xl border text-xs font-sans outline-none bg-white dark:bg-stone-900",
+                                    style: "border-color: {theme.border_color()};",
                                     value: "{model_val}",
                                     onchange: move |e| model_val.set(e.value()),
-                                    option { value: "gemini-2.5-flash", "Gemini 2.5 Flash (Tercepat & Cerdas)" }
-                                    option { value: "gemini-1.5-flash", "Gemini 1.5 Flash (Stabil)" }
-                                    option { value: "gemini-1.5-pro", "Gemini 1.5 Pro (Paling Akurat)" }
+                                    option { value: "gemini-2.5-flash", "Gemini 2.5 Flash (Tercepat & Ringan - Rekomendasi)" }
+                                    option { value: "gemini-1.5-pro", "Gemini 1.5 Pro (Penalaran Mendalam)" }
                                 }
                             }
 
                             button {
-                                class: "w-full py-2.5 rounded-xl text-xs font-bold transition-all mt-4",
-                                style: format!("background-color: {}; color: #000;", theme.accent_color()),
-                                onclick: {
+                                class: "w-full py-3 rounded-2xl text-xs font-sans font-semibold shadow-sm apple-tap transition-all",
+                                style: "background-color: {theme.accent_color()}; color: {theme.accent_contrast_text()};",
+                                onclick: move |_| {
                                     let mut s = settings.clone();
-                                    move |_| {
-                                        s.gemini_api_key = Some(api_key_val().trim().to_string());
-                                        s.gemini_model = Some(model_val().trim().to_string());
-                                        on_save_settings.call(s.clone());
-                                        status_msg.set(Some("Konfigurasi AI berhasil disimpan!".to_string()));
-                                    }
+                                    s.gemini_api_key = Some(api_key_val().trim().to_string());
+                                    s.gemini_model = Some(model_val().clone());
+                                    on_save_settings.call(s);
+                                    status_msg.set(Some("Pengaturan Gemini AI berhasil disimpan!".to_string()));
                                 },
-                                "Simpan Pengaturan AI"
+                                "Simpan Konfigurasi AI"
                             }
+                        }
+                    }
+
+                    if let Some(msg) = status_msg.read().as_ref() {
+                        div {
+                            class: "p-3 rounded-xl border text-xs text-emerald-600 font-sans leading-relaxed animate-fade-in",
+                            style: "background-color: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.2);",
+                            "{msg}"
                         }
                     }
                 }

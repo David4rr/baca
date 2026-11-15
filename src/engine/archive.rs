@@ -10,6 +10,12 @@ pub struct ArchiveBook {
     pub description: Option<String>,
 }
 
+impl ArchiveBook {
+    pub fn thumbnail_url(&self) -> String {
+        format!("https://archive.org/services/img/{}", self.identifier)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ArchiveSearchResponse {
     response: ArchiveSearchInner,

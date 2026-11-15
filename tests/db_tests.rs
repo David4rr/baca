@@ -62,16 +62,16 @@ fn test_database_crud_operations() {
 
     // 6. Settings with Gemini API configuration
     let mut settings = db.get_settings().expect("Should get default settings");
-    assert_eq!(settings.theme, "amoled");
+    assert_eq!(settings.theme, "warm");
 
-    settings.theme = "warm".to_string();
+    settings.theme = "light".to_string();
     settings.font_size = 22;
     settings.gemini_api_key = Some("test-api-key-123".to_string());
     settings.gemini_model = Some("gemini-2.5-flash".to_string());
     db.save_settings(&settings).expect("Should save settings");
 
     let reloaded = db.get_settings().expect("Should reload settings");
-    assert_eq!(reloaded.theme, "warm");
+    assert_eq!(reloaded.theme, "light");
     assert_eq!(reloaded.font_size, 22);
     assert_eq!(reloaded.gemini_api_key.as_deref(), Some("test-api-key-123"));
 

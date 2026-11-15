@@ -54,115 +54,162 @@ pub fn AiExplanationModal(
 
     rsx! {
         div {
-            class: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in",
+            class: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in",
             onclick: move |_| on_close.call(()),
 
             div {
-                class: "w-full max-w-lg max-h-[85vh] rounded-3xl border shadow-2xl flex flex-col overflow-hidden",
-                style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                class: "w-full max-w-lg max-h-[85vh] rounded-[28px] border shadow-2xl flex flex-col overflow-hidden animate-slide-up",
+                style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()}; box-shadow: {theme.card_shadow()};",
                 onclick: move |e| e.stop_propagation(),
 
                 // Header
                 div {
-                    class: "p-4 border-b flex items-center justify-between",
+                    class: "p-5 border-b flex items-center justify-between",
                     style: "border-color: {theme.border_color()};",
                     div {
-                        class: "flex items-center gap-2",
-                        span { class: "text-lg", "✨" }
-                        h3 { class: "font-bold text-sm", "AI Explanation (Gemini)" }
-                    }
-                    div {
-                        class: "flex items-center gap-2",
-                        button {
-                            class: "text-xs opacity-60 hover:opacity-100 font-medium px-2 py-1 rounded-lg border border-white/10",
-                            onclick: move |_| {
-                                let cur = *is_editing_key.read();
-                                is_editing_key.set(!cur);
-                            },
-                            "⚙ API Key"
-                        }
-                        button {
-                            class: "p-1.5 rounded-full hover:bg-white/10 opacity-60 hover:opacity-100 text-sm font-bold",
-                            onclick: move |_| on_close.call(()),
-                            "✕"
-                        }
-                    }
-                }
-
-                // API Key Config Panel (if toggled or missing)
-                if *is_editing_key.read() {
-                    div {
-                        class: "p-4 bg-black/20 border-b flex flex-col gap-2",
-                        style: "border-color: {theme.border_color()};",
-                        p { class: "text-xs opacity-70", "Masukkan Gemini API Key gratis Anda dari Google AI Studio:" }
+                        class: "flex items-center gap-2.5",
                         div {
-                            class: "flex gap-2",
-                            input {
-                                r#type: "password",
-                                class: "flex-1 px-3 py-1.5 text-xs rounded-xl border bg-black/30 outline-none",
-                                style: "border-color: {theme.border_color()};",
-                                placeholder: "AIzaSy...",
-                                value: "{key_input}",
-                                oninput: move |e| key_input.set(e.value()),
-                            }
-                            button {
-                                class: "px-3 py-1.5 rounded-xl text-xs font-bold transition-all",
-                                style: format!("background-color: {}; color: #000;", theme.accent_color()),
-                                onclick: move |_| {
-                                    on_save_key.call(key_input().trim().to_string());
-                                    is_editing_key.set(false);
-                                },
-                                "Simpan"
+                            class: "w-8 h-8 rounded-full flex items-center justify-center text-amber-500",
+                            style: "background-color: {theme.surface_subtle()};",
+                            svg {
+                                class: "w-4 h-4",
+                                view_box: "0 0 24 24",
+                                fill: "none",
+                                stroke: "currentColor",
+                                stroke_width: "2.2",
+                                stroke_linecap: "round",
+                                stroke_linejoin: "round",
+                                path { d: "m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" }
                             }
                         }
-                    }
-                }
-
-                // Query Input Box
-                div {
-                    class: "p-4 border-b flex gap-2",
-                    style: "border-color: {theme.border_color()};",
-                    input {
-                        r#type: "text",
-                        class: "flex-1 px-3 py-2 text-sm rounded-xl border bg-black/10 outline-none font-medium",
-                        style: "border-color: {theme.border_color()};",
-                        placeholder: "Ketik kata atau kalimat untuk dijelaskan...",
-                        value: "{query}",
-                        oninput: move |e| query.set(e.value()),
+                        div {
+                            h3 { class: "font-serif text-lg font-medium", "Asisten AI Baca." }
+                            p { class: "font-sans text-[11px] opacity-60", "Didukung Google Gemini" }
+                        }
                     }
                     button {
-                        class: "px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all flex items-center gap-1.5",
-                        style: format!("background-color: {}; color: #000;", theme.accent_color()),
-                        disabled: *is_loading.read(),
-                        onclick: move |_| do_ask(),
-                        if *is_loading.read() { "⏳" } else { "Tanya AI" }
+                        class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-60 hover:opacity-100 transition-all",
+                        style: "background-color: {theme.surface_subtle()}; color: {theme.text_primary()};",
+                        onclick: move |_| on_close.call(()),
+                        svg {
+                            class: "w-4 h-4",
+                            view_box: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            stroke_width: "2",
+                            line { x1: "18", y1: "6", x2: "6", y2: "18" }
+                            line { x1: "6", y1: "6", x2: "18", y2: "18" }
+                        }
                     }
                 }
 
-                // Body / Result Content
+                // Body
                 div {
-                    class: "p-5 flex-1 overflow-y-auto min-h-[160px] text-sm leading-relaxed",
-                    if *is_loading.read() {
+                    class: "p-5 flex-1 overflow-y-auto space-y-4",
+
+                    // API Key Config Strip (if toggled)
+                    if *is_editing_key.read() {
                         div {
-                            class: "flex flex-col items-center justify-center py-12 gap-3 opacity-60",
-                            div { class: "w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" }
-                            span { class: "text-xs", "Gemini sedang menganalisis teks..." }
+                            class: "p-4 rounded-2xl border text-xs font-sans space-y-2.5",
+                            style: "background-color: {theme.surface_subtle()}; border-color: {theme.border_color()};",
+                            div {
+                                class: "flex items-center justify-between",
+                                span { class: "font-semibold", "Google Gemini API Key" }
+                                a {
+                                    class: "text-[11px] underline opacity-70 hover:opacity-100",
+                                    href: "https://aistudio.google.com/app/apikey",
+                                    target: "_blank",
+                                    "Dapatkan Kunci Gratis ↗"
+                                }
+                            }
+                            div {
+                                class: "flex gap-2",
+                                input {
+                                    r#type: "password",
+                                    class: "flex-1 px-3 py-2 rounded-xl border text-xs outline-none bg-white dark:bg-stone-900",
+                                    style: "border-color: {theme.border_color()};",
+                                    placeholder: "AIzaSy...",
+                                    value: "{key_input}",
+                                    oninput: move |e| key_input.set(e.value()),
+                                }
+                                button {
+                                    class: "px-4 py-2 rounded-xl text-xs font-medium apple-tap transition-all shadow-sm",
+                                    style: "background-color: {theme.accent_color()}; color: {theme.accent_contrast_text()};",
+                                    onclick: move |_| {
+                                        let k = key_input().trim().to_string();
+                                        on_save_key.call(k);
+                                        is_editing_key.set(false);
+                                    },
+                                    "Simpan"
+                                }
+                            }
                         }
-                    } else if let Some(err) = error_msg.read().as_ref() {
+                    }
+
+                    // Query Text Input
+                    div {
+                        class: "space-y-1.5",
                         div {
-                            class: "p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs",
+                            class: "flex items-center justify-between",
+                            label { class: "font-sans text-[11px] font-semibold uppercase tracking-wider opacity-60", "Kata, Istilah, atau Kutipan" }
+                            if !*is_editing_key.read() {
+                                button {
+                                    class: "font-sans text-[11px] opacity-50 hover:opacity-100 underline",
+                                    onclick: move |_| is_editing_key.set(true),
+                                    "Ganti API Key"
+                                }
+                            }
+                        }
+                        div {
+                            class: "relative",
+                            textarea {
+                                class: "w-full p-3.5 rounded-2xl border text-sm font-sans outline-none resize-none transition-all focus:ring-2",
+                                style: "background-color: {theme.surface_subtle()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                                rows: "3",
+                                placeholder: "Masukkan kata atau kalimat yang ingin dipahami...",
+                                value: "{query}",
+                                oninput: move |e| query.set(e.value()),
+                            }
+                        }
+                    }
+
+                    // Submit Button
+                    button {
+                        class: "w-full py-3 rounded-2xl text-xs font-sans font-semibold flex items-center justify-center gap-2 shadow-sm apple-tap transition-all disabled:opacity-40 disabled:pointer-events-none",
+                        style: "background-color: {theme.accent_color()}; color: {theme.accent_contrast_text()};",
+                        disabled: *is_loading.read() || query().trim().is_empty(),
+                        onclick: move |_| do_ask(),
+                        if *is_loading.read() {
+                            div { class: "w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin" }
+                            span { "Menganalisis dengan Gemini..." }
+                        } else {
+                            svg {
+                                class: "w-4 h-4",
+                                view_box: "0 0 24 24",
+                                fill: "none",
+                                stroke: "currentColor",
+                                stroke_width: "2",
+                                path { d: "m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" }
+                            }
+                            span { "Jelaskan dengan AI" }
+                        }
+                    }
+
+                    // Error Message
+                    if let Some(err) = error_msg.read().as_ref() {
+                        div {
+                            class: "p-3.5 rounded-2xl border text-xs text-rose-500 font-sans leading-relaxed animate-fade-in",
+                            style: "background-color: rgba(244, 63, 94, 0.08); border-color: rgba(244, 63, 94, 0.2);",
                             "{err}"
                         }
-                    } else if let Some(text) = explanation.read().as_ref() {
+                    }
+
+                    // Explanation Output
+                    if let Some(res) = explanation.read().as_ref() {
                         div {
-                            class: "prose prose-invert max-w-none text-xs sm:text-sm leading-relaxed whitespace-pre-line",
-                            "{text}"
-                        }
-                    } else {
-                        div {
-                            class: "flex flex-col items-center justify-center py-10 opacity-40 text-center gap-1",
-                            p { class: "text-xs font-semibold", "Pilih teks di buku atau ketik kata di atas" }
-                            p { class: "text-[11px]", "Gemini akan menjelaskan definisi, makna filosofis, dan konteksnya." }
+                            class: "p-5 rounded-2xl border text-sm font-serif leading-relaxed animate-slide-up whitespace-pre-wrap select-text",
+                            style: "background-color: {theme.surface_subtle()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                            "{res}"
                         }
                     }
                 }

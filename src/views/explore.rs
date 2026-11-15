@@ -59,27 +59,32 @@ pub fn ExploreView(
                         let app_dir = crate::db::Database::get_app_dir();
                         let books_dir = app_dir.join("books");
                         let _ = std::fs::create_dir_all(&books_dir);
-                        let target_path = books_dir.join(format!("{}.epub", id));
+                        let dest_path = books_dir.join(format!("{}.epub", id));
 
-                        match download_archive_book(&id, &epub_name, &target_path).await {
-                            Ok(()) => {
-                                if let Ok(parsed) = parse_epub(&target_path) {
+                        match download_archive_book(&id, &epub_name, &dest_path).await {
+                            Ok(_) => {
+                                if let Ok(parsed) = parse_epub(&dest_path) {
                                     let now = chrono::Utc::now().timestamp();
                                     let new_book = Book {
-                                        id: id.clone(),
-                                        title: parsed.title,
-                                        author: parsed.author,
-                                        file_path: target_path.to_string_lossy().to_string(),
+                                        id: uuid::Uuid::new_v4().to_string(),
+                                        title: if !parsed.title.is_empty() { parsed.title } else { book_clone.title.clone() },
+                                        author: if !parsed.author.is_empty() { parsed.author } else { book_clone.creator.clone().unwrap_or_else(|| "Unknown".to_string()) },
+                                        file_path: dest_path.to_string_lossy().to_string(),
                                         format: "epub".to_string(),
-                                        cover_image: parsed.cover_image,
+                                        cover_image: parsed.cover_image.or_else(|| Some(book_clone.thumbnail_url())),
                                         total_chapters: parsed.chapters.len(),
                                         current_chapter: 0,
                                         progress_percent: 0.0,
                                         last_read_at: now,
                                         created_at: now,
                                     };
-                                    on_import.call(new_book);
+
+                                    if let Ok(db) = crate::db::Database::init() {
+                                        let _ = db.insert_or_update_book(&new_book);
+                                    }
+
                                     success_ids.write().insert(id.clone());
+                                    on_import.call(new_book);
                                 }
                             }
                             Err(e) => {
@@ -88,13 +93,10 @@ pub fn ExploreView(
                         }
                     }
                     Ok(None) => {
-                        error_msg.set(Some(format!(
-                            "Format EPUB tidak tersedia untuk '{}'. Tersedia dalam format lain di Archive.org.",
-                            book_clone.title
-                        )));
+                        error_msg.set(Some("Format EPUB tidak tersedia untuk buku ini.".to_string()));
                     }
                     Err(e) => {
-                        error_msg.set(Some(format!("Gagal mengambil metadata: {}", e)));
+                        error_msg.set(Some(format!("Error: {}", e)));
                     }
                 }
                 downloading_ids.write().remove(&id);
@@ -115,57 +117,83 @@ pub fn ExploreView(
 
     rsx! {
         div {
-            class: "explore-view flex-1 flex flex-col p-6 max-w-7xl mx-auto w-full",
+            class: "explore-view flex-1 flex flex-col max-w-4xl mx-auto w-full px-5 sm:px-8 pt-8 pb-32 animate-fade-in transition-colors duration-300",
 
-            // Header & Search
+            // 1. Apple-Standard Header & Circular Back Button
             div {
-                class: "flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6",
+                class: "flex items-start justify-between gap-4 mb-8",
                 div {
-                    class: "flex items-center gap-3",
+                    class: "flex items-center gap-3.5",
                     button {
-                        class: "p-2 rounded-xl border border-white/10 hover:bg-white/10 transition-colors text-sm font-semibold flex items-center gap-2",
+                        class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all flex-shrink-0",
+                        style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                        title: "Kembali ke Rak Buku",
                         onclick: move |_| on_back.call(()),
-                        "← Kembali ke Rak"
+                        svg {
+                            class: "w-4 h-4",
+                            view_box: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            stroke_width: "2.5",
+                            stroke_linecap: "round",
+                            stroke_linejoin: "round",
+                            polyline { points: "15 18 9 12 15 6" }
+                        }
                     }
                     div {
-                        h2 { class: "text-2xl font-bold tracking-tight", "Cari & Unduh Buku Online" }
-                        p { class: "text-xs opacity-60", "Jutaan buku domain publik bebas unduh dari Internet Archive" }
-                    }
-                }
-
-                // Search Input
-                div {
-                    class: "relative w-full md:w-96",
-                    input {
-                        r#type: "text",
-                        class: "w-full px-4 py-2.5 pl-10 rounded-2xl border text-sm transition-all outline-none focus:ring-2",
-                        style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
-                        placeholder: "Ketik judul buku atau nama penulis...",
-                        value: "{search_query}",
-                        oninput: move |e| search_for_input(e.value()),
-                    }
-                    span {
-                        class: "absolute left-3.5 top-2.5 text-base opacity-40 pointer-events-none",
-                        "🔍"
+                        h1 {
+                            class: "font-serif text-[28px] sm:text-[34px] font-medium tracking-tight leading-none",
+                            style: "color: {theme.text_primary()};",
+                            "Jelajahi Arsip Buku"
+                        }
+                        p {
+                            class: "font-sans text-[13px] mt-1.5 opacity-70",
+                            style: "color: {theme.text_secondary()};",
+                            "Jutaan buku domain publik bebas dari Internet Archive"
+                        }
                     }
                 }
             }
 
-            // Category Chips
+            // 2. Search Bar
             div {
-                class: "flex flex-wrap gap-2 mb-6",
+                class: "mb-6",
+                div {
+                    class: "relative w-full",
+                    input {
+                        r#type: "text",
+                        class: "w-full pl-11 pr-4 py-3 rounded-2xl border text-sm transition-all outline-none focus:ring-2",
+                        style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                        placeholder: "Ketik judul buku, nama penulis, atau topik...",
+                        value: "{search_query}",
+                        oninput: move |e| search_for_input(e.value()),
+                    }
+                    div {
+                        class: "absolute left-4 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none",
+                        svg {
+                            class: "w-4 h-4",
+                            view_box: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            stroke_width: "2",
+                            circle { cx: "11", cy: "11", r: "8" }
+                            line { x1: "21", y1: "21", x2: "16.65", y2: "16.65" }
+                        }
+                    }
+                }
+            }
+
+            // 3. Category Chips (Apple pill style)
+            div {
+                class: "flex flex-wrap gap-2 mb-8",
                 for (name, query) in categories {
                     {
                         let mut do_chip_search = search_fn.clone();
                         let q = query.to_string();
                         rsx! {
                             button {
-                                class: "px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors hover:opacity-100",
-                                style: if search_query() == query {
-                                    format!("background-color: {}; color: #000; border-color: transparent;", theme.accent_color())
-                                } else {
-                                    format!("background-color: {}; border-color: {}; color: {}; opacity: 0.8;", theme.surface_color(), theme.border_color(), theme.text_primary())
-                                },
+                                class: "px-4 py-1.5 rounded-full text-xs font-sans font-medium border apple-tap transition-all shadow-sm",
+                                style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_secondary()};",
                                 onclick: move |_| do_chip_search(q.clone()),
                                 "{name}"
                             }
@@ -174,102 +202,128 @@ pub fn ExploreView(
                 }
             }
 
-            // Error banner if any
-            if let Some(err) = error_msg() {
+            // 4. Error Message Banner
+            if let Some(err) = error_msg.read().as_ref() {
                 div {
-                    class: "mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center justify-between",
-                    span { "{err}" }
-                    button {
-                        class: "opacity-60 hover:opacity-100 font-bold ml-4",
-                        onclick: move |_| error_msg.set(None),
-                        "✕"
-                    }
+                    class: "p-4 mb-6 rounded-2xl border text-xs text-rose-500 font-sans animate-fade-in",
+                    style: "background-color: rgba(244, 63, 94, 0.08); border-color: rgba(244, 63, 94, 0.2);",
+                    "{err}"
                 }
             }
 
-            // Content Grid
+            // 5. Loading State
             if *is_loading.read() {
                 div {
-                    class: "flex-1 flex flex-col items-center justify-center py-20 opacity-60 gap-3",
-                    div { class: "w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" }
-                    p { class: "text-sm", "Mencari katalog buku di Internet Archive..." }
+                    class: "flex flex-col items-center justify-center p-16 text-center animate-fade-in",
+                    div {
+                        class: "w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mb-4",
+                        style: "border-color: {theme.text_primary()}; border-top-color: transparent;",
+                    }
+                    p { class: "text-xs font-sans opacity-60", "Mencari buku di perpustakaan dunia..." }
                 }
             } else if results.read().is_empty() {
                 div {
-                    class: "flex-1 flex flex-col items-center justify-center py-20 opacity-50 text-center",
-                    p { class: "text-base font-semibold mb-1", "Tidak ada hasil yang ditemukan" }
-                    p { class: "text-xs", "Coba gunakan kata kunci judul atau nama pengarang lain." }
+                    class: "p-12 text-center rounded-[28px] border border-dashed my-8",
+                    style: "border-color: {theme.border_color()}; background-color: {theme.surface_color()};",
+                    h3 {
+                        class: "font-serif text-xl font-medium mb-1",
+                        style: "color: {theme.text_primary()};",
+                        "Tidak Ada Hasil"
+                    }
+                    p {
+                        class: "text-xs font-sans opacity-60",
+                        style: "color: {theme.text_secondary()};",
+                        "Coba gunakan kata kunci pencarian yang berbeda."
+                    }
                 }
             } else {
+                // 6. Book Results Grid
                 div {
-                    class: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4",
+                    class: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 sm:gap-6",
                     for book in results.read().iter() {
                         {
-                            let id = book.identifier.clone();
-                            let is_downloading = downloading_ids.read().contains(&id);
-                            let is_downloaded = success_ids.read().contains(&id);
-                            let book_to_dl = book.clone();
-                            let mut do_download = on_download.clone();
+                            let is_downloading = downloading_ids.read().contains(&book.identifier);
+                            let is_success = success_ids.read().contains(&book.identifier);
+                            let book_data = book.clone();
+                            let mut trigger_download = on_download.clone();
 
                             rsx! {
                                 div {
-                                    key: "{id}",
-                                    class: "flex flex-col p-4 rounded-2xl border transition-all duration-200 hover:shadow-lg",
-                                    style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()};",
+                                    key: "{book.identifier}",
+                                    class: "group relative rounded-2xl p-3 border flex flex-col justify-between transition-all duration-300 shadow-sm",
+                                    style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; box-shadow: {theme.card_shadow()};",
 
+                                    // Cover Image with 3D depth
                                     div {
-                                        class: "flex gap-3 mb-3",
-                                        // Cover Image
-                                        div {
-                                            class: "w-16 h-24 rounded-lg overflow-hidden shrink-0 bg-black/20 flex items-center justify-center relative",
-                                            img {
-                                                src: "https://archive.org/services/img/{id}",
-                                                class: "w-full h-full object-cover",
-                                                loading: "lazy",
-                                            }
-                                        }
-
-                                        // Metadata
-                                        div {
-                                            class: "flex-1 min-w-0 flex flex-col",
-                                            h4 {
-                                                class: "text-sm font-bold leading-tight line-clamp-2 mb-1",
-                                                "{book.title}"
-                                            }
-                                            if let Some(creator) = &book.creator {
-                                                p {
-                                                    class: "text-xs opacity-70 truncate mb-1",
-                                                    "{creator}"
-                                                }
-                                            }
-                                            if let Some(dl) = book.downloads {
-                                                p {
-                                                    class: "text-[10px] opacity-50 flex items-center gap-1 mt-auto",
-                                                    "📥 {dl} downloads"
+                                        class: "book-cover-realistic w-full aspect-[2/3] rounded-xl overflow-hidden mb-3",
+                                        style: "background-color: {theme.surface_subtle()};",
+                                        {
+                                            let thumb = book.thumbnail_url();
+                                            rsx! {
+                                                img {
+                                                    class: "w-full h-full object-cover",
+                                                    src: "{thumb}",
+                                                    alt: "{book.title}",
+                                                    loading: "lazy",
                                                 }
                                             }
                                         }
                                     }
 
-                                    // Action Button
-                                    button {
-                                        class: "mt-auto w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all",
-                                        disabled: is_downloading || is_downloaded,
-                                        style: if is_downloaded {
-                                            "background-color: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3);".to_string()
-                                        } else if is_downloading {
-                                            "background-color: rgba(255, 255, 255, 0.1); color: #ccc; cursor: not-allowed;".to_string()
-                                        } else {
-                                            format!("background-color: {}; color: #000; font-weight: 700;", theme.accent_color())
-                                        },
-                                        onclick: move |_| do_download(book_to_dl.clone()),
+                                    // Metadata
+                                    div {
+                                        class: "flex-1 flex flex-col justify-between",
+                                        div {
+                                            h3 {
+                                                class: "font-serif text-[14px] font-semibold line-clamp-2 leading-snug mb-1",
+                                                style: "color: {theme.text_primary()};",
+                                                title: "{book.title}",
+                                                "{book.title}"
+                                            }
+                                            p {
+                                                class: "font-sans text-[12px] opacity-70 truncate mb-3",
+                                                style: "color: {theme.text_secondary()};",
+                                                "{book.creator.clone().unwrap_or_else(|| \"Penulis Tidak Diketahui\".to_string())}"
+                                            }
+                                        }
 
-                                        if is_downloaded {
-                                            "✓ Tersimpan di Rak"
-                                        } else if is_downloading {
-                                            "⏳ Mengunduh EPUB..."
-                                        } else {
-                                            "⬇ Unduh EPUB Gratis"
+                                        // Action Button
+                                        button {
+                                            class: "w-full h-9 rounded-xl text-xs font-sans font-medium flex items-center justify-center gap-1.5 apple-tap transition-all shadow-sm disabled:pointer-events-none",
+                                            style: if is_success {
+                                                "background-color: #10B981; color: #FFF;".to_string()
+                                            } else {
+                                                format!("background-color: {}; color: {};", theme.accent_color(), theme.accent_contrast_text())
+                                            },
+                                            disabled: is_downloading || is_success,
+                                            onclick: move |_| trigger_download(book_data.clone()),
+
+                                            if is_downloading {
+                                                div { class: "w-3.5 h-3.5 border-2 border-t-transparent border-white rounded-full animate-spin" }
+                                                span { "Mengunduh..." }
+                                            } else if is_success {
+                                                svg {
+                                                    class: "w-3.5 h-3.5",
+                                                    view_box: "0 0 24 24",
+                                                    fill: "none",
+                                                    stroke: "currentColor",
+                                                    stroke_width: "2.5",
+                                                    polyline { points: "20 6 9 17 4 12" }
+                                                }
+                                                span { "Tersimpan di Rak" }
+                                            } else {
+                                                svg {
+                                                    class: "w-3.5 h-3.5",
+                                                    view_box: "0 0 24 24",
+                                                    fill: "none",
+                                                    stroke: "currentColor",
+                                                    stroke_width: "2.5",
+                                                    path { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }
+                                                    polyline { points: "7 10 12 15 17 10" }
+                                                    line { x1: "12", y1: "15", x2: "12", y2: "3" }
+                                                }
+                                                span { "Unduh EPUB" }
+                                            }
                                         }
                                     }
                                 }

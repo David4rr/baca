@@ -16,32 +16,44 @@ pub fn TocDrawer(
     }
 
     rsx! {
-        // Backdrop overlay
+        // Frosted Backdrop overlay
         div {
-            class: "fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity",
+            class: "fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-fade-in",
             onclick: move |_| on_close.call(()),
         }
 
-        // Side Drawer
+        // Apple Side Drawer with Spring Motion
         div {
-            class: "fixed inset-y-0 left-0 z-50 w-80 max-w-[85vw] shadow-2xl flex flex-col transition-transform transform translate-x-0 border-r",
-            style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+            class: "fixed inset-y-0 left-0 z-50 w-84 max-w-[85vw] shadow-2xl flex flex-col border-r animate-slide-up transition-all",
+            style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()}; box-shadow: {theme.card_shadow()};",
 
             // Drawer Header
             div {
-                class: "flex items-center justify-between p-5 border-b",
+                class: "flex items-center justify-between p-6 border-b",
                 style: "border-color: {theme.border_color()};",
-                h2 { class: "font-semibold text-base", "Table of Contents" }
+                div {
+                    h2 { class: "font-serif text-xl font-medium", "Daftar Isi" }
+                    p { class: "font-sans text-[11px] opacity-60", "{toc.len()} Bab Tersedia" }
+                }
                 button {
-                    class: "p-1 rounded-lg hover:bg-white/10 text-xl leading-none",
+                    class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-60 hover:opacity-100 transition-all",
+                    style: "background-color: {theme.surface_subtle()}; color: {theme.text_primary()};",
                     onclick: move |_| on_close.call(()),
-                    "✕"
+                    svg {
+                        class: "w-4 h-4",
+                        view_box: "0 0 24 24",
+                        fill: "none",
+                        stroke: "currentColor",
+                        stroke_width: "2",
+                        line { x1: "18", y1: "6", x2: "6", y2: "18" }
+                        line { x1: "6", y1: "6", x2: "18", y2: "18" }
+                    }
                 }
             }
 
             // Chapter List
             div {
-                class: "flex-1 overflow-y-auto p-3 space-y-1",
+                class: "flex-1 overflow-y-auto p-4 space-y-1.5",
                 for item in toc {
                     {
                         let idx = item.chapter_index;
@@ -49,20 +61,26 @@ pub fn TocDrawer(
                         rsx! {
                             button {
                                 key: "{idx}",
-                                class: "w-full text-left px-4 py-2.5 rounded-xl text-sm transition-all flex items-center justify-between",
+                                class: "w-full text-left px-4 py-3 rounded-2xl text-[13px] font-sans transition-all flex items-center justify-between apple-tap shadow-sm",
                                 style: if is_active {
-                                    format!("background-color: {}; color: #FFF; font-weight: 600;", theme.accent_color())
+                                    format!("background-color: {}; color: {}; font-weight: 600;", theme.accent_color(), theme.accent_contrast_text())
                                 } else {
-                                    format!("color: {};", theme.text_primary())
+                                    format!("background-color: transparent; color: {};", theme.text_primary())
                                 },
                                 onclick: move |_| {
                                     on_select.call(idx);
                                     on_close.call(());
                                 },
-                                span { class: "truncate pr-2", "{item.title}" }
                                 span {
-                                    class: "text-xs opacity-60 flex-shrink-0",
-                                    "#{idx + 1}"
+                                    class: "truncate mr-2 font-serif text-[14px]",
+                                    "{item.title}"
+                                }
+                                if is_active {
+                                    span {
+                                        class: "text-[10px] uppercase font-sans tracking-wider px-2 py-0.5 rounded-full",
+                                        style: "background-color: rgba(255,255,255,0.2);",
+                                        "Aktif"
+                                    }
                                 }
                             }
                         }

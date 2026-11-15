@@ -1,50 +1,51 @@
 use dioxus::prelude::*;
-use crate::components::{AiExplanationModal, BackupModal, FontControls, InBookSearchModal, Navbar, StatsModal, TocDrawer};
+use crate::components::{
+    AiExplanationModal, BackupModal, FontControls, InBookSearchModal, StatsModal, TocDrawer,
+};
 use crate::db::models::{BackupData, Book, DailyReadingStats, UserSettings};
 use crate::db::Database;
 use crate::engine::parse_epub;
 use crate::state::{AppState, View};
 use crate::theme::ThemeMode;
 use crate::views::{ExploreView, ReaderView, ShelfView};
-use std::sync::Arc;
 
 #[component]
 pub fn App() -> Element {
-    // Database initialization with resilient fallback
-    let db = use_hook(|| {
-        Arc::new(Database::init().unwrap_or_else(|e| {
-            eprintln!("[Baca App] Database::init failed: {:?}, falling back to memory DB", e);
-            Database::memory().expect("In-memory database should never fail")
-        }))
+    let db = std::sync::Arc::new(match Database::init() {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("Database init failed, falling back to in-memory: {}", e);
+            Database::memory().expect("In-memory database must succeed")
+        }
     });
-    
-    // Initial fetch from DB
+
     let initial_books = db.get_all_books().unwrap_or_default();
     let initial_settings = db.get_settings().unwrap_or_default();
 
-    let mut state = use_hook(|| AppState::new(initial_books, initial_settings));
-    let mut stats_data = use_signal(|| Vec::<DailyReadingStats>::new());
+    let mut state = AppState::new(initial_books, initial_settings);
+    let mut stats_data = use_signal(Vec::<DailyReadingStats>::new);
 
-    let current_theme = *state.theme.read();
     let current_view = state.current_view.read().clone();
+    let current_theme = *state.theme.read();
     let settings = state.settings.read().clone();
 
-    // Import helper for local files
+    let db_import = db.clone();
     let import_book = {
-        let db = db.clone();
+        let db = db_import.clone();
         move || {
             let db = db.clone();
             spawn(async move {
                 #[cfg(not(target_os = "android"))]
                 {
-                    let file = rfd::AsyncFileDialog::new()
-                        .add_filter("E-Books", &["epub"])
-                        .set_title("Select EPUB Book")
+                    use rfd::AsyncFileDialog;
+                    let file = AsyncFileDialog::new()
+                        .add_filter("E-Book (EPUB)", &["epub"])
+                        .set_title("Pilih berkas EPUB")
                         .pick_file()
                         .await;
 
-                    if let Some(handle) = file {
-                        let path = handle.path();
+                    if let Some(file_handle) = file {
+                        let path = file_handle.path();
                         if let Ok(parsed) = parse_epub(path) {
                             let now = chrono::Utc::now().timestamp();
                             let book_id = uuid::Uuid::new_v4().to_string();
@@ -61,7 +62,6 @@ pub fn App() -> Element {
                                 last_read_at: now,
                                 created_at: now,
                             };
-
                             if db.insert_or_update_book(&new_book).is_ok() {
                                 let mut books = state.books.write();
                                 books.insert(0, new_book);
@@ -165,6 +165,7 @@ pub fn App() -> Element {
     let mut settings_for_font = change_settings.clone();
     let mut settings_for_ai = change_settings.clone();
     let mut settings_for_backup = change_settings.clone();
+    let mut settings_for_reader = change_settings.clone();
 
     let db_export = db.clone();
     let handle_export_backup = move |_| {
@@ -199,7 +200,6 @@ pub fn App() -> Element {
         *state.is_stats_open.write() = true;
     };
 
-    let import_for_nav = import_book.clone();
     let import_for_shelf = import_book.clone();
 
     let mut chapter_for_reader = update_chapter.clone();
@@ -208,34 +208,8 @@ pub fn App() -> Element {
 
     rsx! {
         div {
-            class: "app-root flex flex-col min-h-screen transition-colors duration-300 font-sans",
+            class: "app-root flex flex-col min-h-screen transition-colors duration-300 font-sans selection:bg-amber-200",
             style: "background-color: {current_theme.bg_color()}; color: {current_theme.text_primary()};",
-
-            Navbar {
-                title: match &current_view {
-                    View::Reader { book, .. } => book.title.clone(),
-                    View::Explore => "Cari & Unduh Buku Online".to_string(),
-                    _ => "Baca.".to_string(),
-                },
-                theme: current_theme,
-                is_reader: matches!(current_view, View::Reader { .. }),
-                is_explore: matches!(current_view, View::Explore),
-                on_back: move |_| *state.current_view.write() = View::Shelf,
-                on_explore: move |_| *state.current_view.write() = View::Explore,
-                on_import: move |_| import_for_nav(),
-                on_toggle_stats: handle_open_stats,
-                on_toggle_settings: move |_| *state.is_backup_open.write() = true,
-                on_toggle_search: move |_| *state.is_inbook_search_open.write() = true,
-                on_toggle_ai: move |_| *state.is_ai_open.write() = true,
-                on_toggle_toc: move |_| {
-                    let cur = *state.is_toc_open.read();
-                    *state.is_toc_open.write() = !cur;
-                },
-                on_toggle_typography: move |_| {
-                    let cur = *state.is_typography_open.read();
-                    *state.is_typography_open.write() = !cur;
-                },
-            }
 
             match &current_view {
                 View::Shelf => rsx! {
@@ -247,6 +221,9 @@ pub fn App() -> Element {
                         on_select_book: handle_select_book,
                         on_delete_book: handle_delete,
                         on_import: move |_| import_for_shelf(),
+                        on_explore: move |_| *state.current_view.write() = View::Explore,
+                        on_stats: handle_open_stats,
+                        on_settings: move |_| *state.is_backup_open.write() = true,
                     }
                 },
                 View::Explore => rsx! {
@@ -267,6 +244,25 @@ pub fn App() -> Element {
                         theme: current_theme,
                         settings: settings.clone(),
                         on_change_chapter: move |ch| chapter_for_reader(ch),
+                        on_back: move |_| *state.current_view.write() = View::Shelf,
+                        on_toggle_typography: move |_| {
+                            let cur = *state.is_typography_open.read();
+                            *state.is_typography_open.write() = !cur;
+                        },
+                        on_toggle_toc: move |_| {
+                            let cur = *state.is_toc_open.read();
+                            *state.is_toc_open.write() = !cur;
+                        },
+                        on_toggle_search: move |_| *state.is_inbook_search_open.write() = true,
+                        on_toggle_ai: move |_| *state.is_ai_open.write() = true,
+                        on_change_theme: {
+                            let settings = settings.clone();
+                            move |theme_str: String| {
+                                let mut s = settings.clone();
+                                s.theme = theme_str;
+                                settings_for_reader(s);
+                            }
+                        },
                     }
 
                     TocDrawer {

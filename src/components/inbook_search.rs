@@ -39,7 +39,6 @@ pub fn InBookSearchModal(
         let mut results = Vec::new();
 
         for (idx, ch) in chapters.iter().enumerate() {
-            // Extract raw text by stripping HTML tags
             let plain_text = strip_tags(&ch.html_content);
             let plain_lower = plain_text.to_lowercase();
 
@@ -47,7 +46,6 @@ pub fn InBookSearchModal(
             while let Some(found_idx) = plain_lower[start_pos..].find(&q_lower) {
                 let actual_idx = start_pos + found_idx;
 
-                // Extract context window
                 let before_start = actual_idx.saturating_sub(40);
                 let snippet_before = plain_text[before_start..actual_idx].trim_start().to_string();
                 let matched_term = plain_text[actual_idx..actual_idx + q.len()].to_string();
@@ -78,42 +76,67 @@ pub fn InBookSearchModal(
     };
 
     rsx! {
+        // Frosted Glass Backdrop
         div {
-            class: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in",
+            class: "fixed inset-0 z-50 bg-black/40 backdrop-blur-sm animate-fade-in flex items-center justify-center p-4",
             onclick: move |_| on_close.call(()),
 
+            // Apple Center Dialog
             div {
-                class: "w-full max-w-xl max-h-[85vh] rounded-3xl border shadow-2xl flex flex-col overflow-hidden",
-                style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
-                onclick: move |e| e.stop_propagation(),
+                class: "w-full max-w-lg rounded-[28px] border shadow-2xl flex flex-col overflow-hidden max-h-[82vh] animate-slide-up",
+                style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()}; box-shadow: {theme.card_shadow()};",
+                onclick: |e| e.stop_propagation(),
 
-                // Search Header
+                // Header with Search Input
                 div {
-                    class: "p-4 border-b flex items-center gap-3",
+                    class: "p-4 sm:p-5 border-b flex items-center gap-3",
                     style: "border-color: {theme.border_color()};",
-                    span { class: "text-lg opacity-50", "🔍" }
+
+                    div {
+                        class: "w-8 h-8 rounded-full flex items-center justify-center opacity-50",
+                        svg {
+                            class: "w-4 h-4",
+                            view_box: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            stroke_width: "2.2",
+                            circle { cx: "11", cy: "11", r: "8" }
+                            line { x1: "21", y1: "21", x2: "16.65", y2: "16.65" }
+                        }
+                    }
+
                     input {
                         r#type: "text",
-                        class: "flex-1 bg-transparent border-none text-base outline-none font-medium",
-                        placeholder: "Cari kata atau kalimat di dalam buku...",
+                        class: "flex-1 bg-transparent border-none text-base font-sans outline-none placeholder:opacity-40",
+                        placeholder: "Cari kata atau kalimat di buku...",
                         value: "{query}",
                         autofocus: true,
                         oninput: move |e| do_search(e.value()),
                     }
+
                     button {
-                        class: "p-1.5 rounded-full hover:bg-white/10 opacity-60 hover:opacity-100 text-sm font-bold",
+                        class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-60 hover:opacity-100 transition-all",
+                        style: "background-color: {theme.surface_subtle()}; color: {theme.text_primary()};",
                         onclick: move |_| on_close.call(()),
-                        "✕"
+                        svg {
+                            class: "w-4 h-4",
+                            view_box: "0 0 24 24",
+                            fill: "none",
+                            stroke: "currentColor",
+                            stroke_width: "2",
+                            line { x1: "18", y1: "6", x2: "6", y2: "18" }
+                            line { x1: "6", y1: "6", x2: "18", y2: "18" }
+                        }
                     }
                 }
 
-                // Results Counter
+                // Subheader Counter
                 div {
-                    class: "px-5 py-2 text-[11px] font-bold uppercase tracking-wider opacity-50 border-b flex justify-between",
-                    style: "border-color: {theme.border_color()};",
+                    class: "px-6 py-2.5 text-[11px] font-sans font-medium uppercase tracking-wider opacity-50 border-b flex justify-between",
+                    style: "border-color: {theme.border_color()}; background-color: {theme.surface_subtle()};",
                     span {
                         if query().len() < 2 {
-                            "Ketik minimal 2 karakter"
+                            "Ketik minimal 2 huruf untuk mencari"
                         } else {
                             "{hits.read().len()} Hasil Ditemukan"
                         }
@@ -122,10 +145,10 @@ pub fn InBookSearchModal(
 
                 // Results List
                 div {
-                    class: "flex-1 overflow-y-auto p-3 space-y-2 divide-y divide-white/5",
+                    class: "flex-1 overflow-y-auto p-4 space-y-2",
                     if hits.read().is_empty() && query().len() >= 2 {
                         div {
-                            class: "py-12 text-center opacity-40 text-sm",
+                            class: "py-16 text-center opacity-40 text-xs font-sans",
                             "Tidak ada teks yang cocok dalam buku ini."
                         }
                     } else {
@@ -135,22 +158,22 @@ pub fn InBookSearchModal(
                                 let term = hit.matched_term.clone();
                                 rsx! {
                                     div {
-                                        class: "p-3 rounded-2xl hover:bg-white/5 cursor-pointer transition-colors text-left group",
+                                        class: "p-3.5 rounded-2xl border apple-tap cursor-pointer transition-all shadow-sm",
+                                        style: "border-color: {theme.border_color()}; background-color: {theme.surface_color()};",
                                         onclick: move |_| {
                                             on_select_match.call((ch_idx, term.clone()));
                                             on_close.call(());
                                         },
                                         div {
-                                            class: "text-[11px] font-bold uppercase tracking-wider mb-1 opacity-60 group-hover:opacity-90",
-                                            style: "color: {theme.accent_color()};",
+                                            class: "text-[11px] font-sans font-semibold uppercase tracking-wider mb-1.5 opacity-60",
                                             "{hit.chapter_title}"
                                         }
                                         p {
-                                            class: "text-xs leading-relaxed line-clamp-2",
+                                            class: "font-serif text-[13px] leading-relaxed line-clamp-2",
                                             span { class: "opacity-70", "...{hit.snippet_before}" }
                                             span {
-                                                class: "font-bold px-1 py-0.5 rounded mx-0.5",
-                                                style: format!("background-color: {}; color: #000;", theme.accent_color()),
+                                                class: "font-semibold px-1 py-0.5 rounded mx-0.5",
+                                                style: "background-color: #FEF08A; color: #1C1917;",
                                                 "{hit.matched_term}"
                                             }
                                             span { class: "opacity-70", "{hit.snippet_after}..." }
@@ -167,18 +190,19 @@ pub fn InBookSearchModal(
 }
 
 fn strip_tags(html: &str) -> String {
-    let mut output = String::with_capacity(html.len());
+    let mut out = String::with_capacity(html.len());
     let mut in_tag = false;
 
-    for ch in html.chars() {
-        if ch == '<' {
+    for c in html.chars() {
+        if c == '<' {
             in_tag = true;
-        } else if ch == '>' {
+        } else if c == '>' {
             in_tag = false;
-            output.push(' ');
+            out.push(' ');
         } else if !in_tag {
-            output.push(ch);
+            out.push(c);
         }
     }
-    output
+
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
 }

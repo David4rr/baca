@@ -41,10 +41,10 @@ pub struct UserSettings {
 impl Default for UserSettings {
     fn default() -> Self {
         Self {
-            theme: "amoled".to_string(),
+            theme: "warm".to_string(),
             font_family: "serif".to_string(),
             font_size: 18,
-            line_height: 1.7,
+            line_height: 1.85,
             margin_horizontal: 32,
             gemini_api_key: None,
             gemini_model: Some("gemini-2.5-flash".to_string()),
