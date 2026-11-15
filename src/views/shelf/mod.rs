@@ -1,14 +1,17 @@
 pub mod dock;
 pub mod empty_state;
 pub mod hero_card;
+pub mod online_feed;
 pub mod recent_grid;
 
 use dioxus::prelude::*;
 use crate::db::models::Book;
+use crate::engine::ArchiveBook;
 use crate::theme::ThemeMode;
 pub use dock::FloatingDock;
 pub use empty_state::EmptyShelfState;
 pub use hero_card::HeroCard;
+pub use online_feed::OnlineFeed;
 pub use recent_grid::RecentGrid;
 
 #[component]
@@ -20,6 +23,7 @@ pub fn ShelfView(
     on_select_book: EventHandler<Book>,
     on_delete_book: EventHandler<String>,
     on_import: EventHandler<()>,
+    on_download_online_book: EventHandler<ArchiveBook>,
     on_explore: EventHandler<()>,
     on_stats: EventHandler<()>,
     on_settings: EventHandler<()>,
@@ -50,7 +54,7 @@ pub fn ShelfView(
         div {
             class: "shelf-view flex-1 flex flex-col w-full max-w-4xl mx-auto px-5 sm:px-8 pt-8 pb-32 transition-colors duration-300 animate-fade-in",
 
-            // 1. Apple-Standard Editorial Header
+            // 1. Editorial Header
             div {
                 class: "flex items-start justify-between mb-8 select-none",
                 div {
@@ -58,12 +62,12 @@ pub fn ShelfView(
                     h1 {
                         class: "font-serif text-[34px] sm:text-[40px] font-medium tracking-tight leading-none",
                         style: "color: {theme.text_primary()};",
-                        "My Library"
+                        "Perpustakaan Saya"
                     }
                     p {
                         class: "font-sans text-[13px] sm:text-[14px] mt-2 font-normal tracking-normal opacity-70",
                         style: "color: {theme.text_secondary()};",
-                        "Pick up where you left off"
+                        "Koleksi buku offline dan temuan literatur baru"
                     }
                 }
 
@@ -72,7 +76,7 @@ pub fn ShelfView(
                     button {
                         class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all",
                         style: "width: 40px; height: 40px; min-width: 40px; min-height: 40px; background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
-                        title: "Import Buku (EPUB)",
+                        title: "Tambah Buku Lokal (EPUB / PDF)",
                         onclick: move |_| on_import.call(()),
                         svg {
                             class: "w-4 h-4",
@@ -91,7 +95,7 @@ pub fn ShelfView(
                     button {
                         class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all",
                         style: "width: 40px; height: 40px; min-width: 40px; min-height: 40px; background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
-                        title: "Cari Buku",
+                        title: "Cari Koleksi",
                         onclick: move |_| {
                             let cur = *is_search_visible.read();
                             is_search_visible.set(!cur);
@@ -113,7 +117,7 @@ pub fn ShelfView(
                 }
             }
 
-            // Expandable Search Bar
+            // Search Bar
             if *is_search_visible.read() || !search_query.is_empty() {
                 div {
                     class: "mb-6 animate-slide-up",
@@ -145,7 +149,7 @@ pub fn ShelfView(
                 }
             }
 
-            // 2. Empty State or Book Collections
+            // 2. Offline Books (Top of Home Screen)
             if filtered_books.is_empty() {
                 EmptyShelfState {
                     search_query: search_query,
@@ -173,7 +177,13 @@ pub fn ShelfView(
                 }
             }
 
-            // 3. Floating Apple Island Dock
+            // 3. Online Books Discovery Stream (Bottom of Home Screen)
+            OnlineFeed {
+                theme: theme,
+                on_download_book: move |b| on_download_online_book.call(b),
+            }
+
+            // 4. Floating Apple Island Dock
             FloatingDock {
                 theme: theme,
                 on_explore: move |_| on_explore.call(()),

@@ -12,6 +12,9 @@ pub struct ArchiveBook {
     pub description: Option<String>,
     pub cover_url: Option<String>,
     pub direct_epub_url: Option<String>,
+    pub direct_pdf_url: Option<String>,
+    pub has_epub: bool,
+    pub has_pdf: bool,
 }
 
 impl ArchiveBook {
@@ -22,6 +25,12 @@ impl ArchiveBook {
             }
         }
         format!("https://archive.org/services/img/{}", self.identifier)
+    }
+
+    pub fn author_display(&self) -> String {
+        self.creator
+            .clone()
+            .unwrap_or_else(|| "Pengarang Tidak Dikenal".to_string())
     }
 }
 
@@ -107,12 +116,8 @@ pub async fn search_archive(query: &str, page: u32) -> Result<Vec<ArchiveBook>, 
 
     let mut books = Vec::new();
 
-    // 1. First search Project Gutenberg via Gutendex (instant & verified EPUB)
-    let guten_query = if clean_query.is_empty() {
-        "classics"
-    } else {
-        clean_query
-    };
+    // 1. Search Project Gutenberg via Gutendex
+    let guten_query = if clean_query.is_empty() { "classics" } else { clean_query };
     let guten_url = format!(
         "https://gutendex.com/books/?search={}&page={}",
         urlencoding::encode(guten_query),
@@ -128,19 +133,33 @@ pub async fn search_archive(query: &str, page: u32) -> Result<Vec<ArchiveBook>, 
         if resp.status().is_success() {
             if let Ok(parsed) = resp.json::<GutendexResponse>().await {
                 for b in parsed.results {
-                    if let Some(epub_url) = b.formats.get("application/epub+zip") {
+                    let epub_url = b.formats.get("application/epub+zip").cloned();
+                    let pdf_url = b.formats.get("application/pdf").cloned();
+                    let has_epub = epub_url.is_some();
+                    let has_pdf = pdf_url.is_some();
+
+                    if has_epub || has_pdf {
                         let cover_url = b.formats.get("image/jpeg").cloned();
                         let author = b.authors.first().map(|a| a.name.clone());
                         let desc = b.summaries.and_then(|s| s.into_iter().next());
 
+                        let id = if let Some(e) = &epub_url {
+                            format!("gutenberg:{}", e)
+                        } else {
+                            format!("gutenberg:{}", pdf_url.as_deref().unwrap_or_default())
+                        };
+
                         books.push(ArchiveBook {
-                            identifier: format!("gutenberg:{}", epub_url),
+                            identifier: id,
                             title: b.title,
                             creator: author,
                             downloads: b.download_count,
                             description: desc,
                             cover_url,
-                            direct_epub_url: Some(epub_url.clone()),
+                            direct_epub_url: epub_url,
+                            direct_pdf_url: pdf_url,
+                            has_epub,
+                            has_pdf,
                         });
                     }
                 }
@@ -148,11 +167,11 @@ pub async fn search_archive(query: &str, page: u32) -> Result<Vec<ArchiveBook>, 
         }
     }
 
-    // 2. Search Archive.org with strict EPUB filter and valid Solr query
+    // 2. Search Archive.org with EPUB and PDF filters
     let archive_query = if clean_query.is_empty() {
-        "mediatype:(texts) AND format:(EPUB)".to_string()
+        "mediatype:(texts) AND (format:(EPUB) OR format:(PDF) OR format:(\"Text PDF\"))".to_string()
     } else {
-        format!("({}) AND mediatype:(texts) AND format:(EPUB)", clean_query)
+        format!("({}) AND mediatype:(texts) AND (format:(EPUB) OR format:(PDF) OR format:(\"Text PDF\"))", clean_query)
     };
 
     let archive_url = format!(
@@ -178,11 +197,14 @@ pub async fn search_archive(query: &str, page: u32) -> Result<Vec<ArchiveBook>, 
                     books.push(ArchiveBook {
                         cover_url: Some(format!("https://archive.org/services/img/{}", id)),
                         direct_epub_url: None,
+                        direct_pdf_url: None,
                         identifier: id,
                         title,
                         creator,
                         downloads: raw.downloads,
                         description,
+                        has_epub: true,
+                        has_pdf: true,
                     });
                 }
             }
@@ -196,12 +218,20 @@ pub async fn search_archive(query: &str, page: u32) -> Result<Vec<ArchiveBook>, 
     Ok(books)
 }
 
-pub async fn get_archive_epub_file(identifier: &str) -> Result<Option<String>, String> {
+pub async fn get_archive_format_file(identifier: &str, format_kind: &str) -> Result<Option<String>, String> {
+    let is_pdf = format_kind.to_lowercase() == "pdf";
+
     if identifier.starts_with("http://") || identifier.starts_with("https://") {
         return Ok(Some(identifier.to_string()));
     }
     if let Some(direct) = identifier.strip_prefix("gutenberg:") {
-        return Ok(Some(direct.to_string()));
+        if is_pdf {
+            if direct.ends_with(".pdf") {
+                return Ok(Some(direct.to_string()));
+            }
+        } else {
+            return Ok(Some(direct.to_string()));
+        }
     }
 
     let client = reqwest::Client::builder()
@@ -229,7 +259,10 @@ pub async fn get_archive_epub_file(identifier: &str) -> Result<Option<String>, S
     if let Some(files) = meta.files {
         for file in files {
             if let Some(name) = file.name {
-                if name.to_lowercase().ends_with(".epub") {
+                let lower = name.to_lowercase();
+                if is_pdf && lower.ends_with(".pdf") {
+                    return Ok(Some(name));
+                } else if !is_pdf && lower.ends_with(".epub") {
                     return Ok(Some(name));
                 }
             }
@@ -237,6 +270,10 @@ pub async fn get_archive_epub_file(identifier: &str) -> Result<Option<String>, S
     }
 
     Ok(None)
+}
+
+pub async fn get_archive_epub_file(identifier: &str) -> Result<Option<String>, String> {
+    get_archive_format_file(identifier, "epub").await
 }
 
 pub async fn download_archive_book(

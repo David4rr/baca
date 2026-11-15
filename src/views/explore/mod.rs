@@ -2,27 +2,22 @@ pub mod book_item;
 pub mod header;
 
 use dioxus::prelude::*;
-use crate::engine::{download_archive_book, get_archive_epub_file, parse_epub, search_archive, ArchiveBook};
-use crate::db::models::Book;
+use crate::engine::{search_archive, ArchiveBook};
 use crate::theme::ThemeMode;
 pub use book_item::ExploreBookItem;
 pub use header::ExploreHeader;
-use std::collections::HashSet;
 
 #[component]
 pub fn ExploreView(
     theme: ThemeMode,
-    on_import_book: EventHandler<Book>,
+    on_request_download: EventHandler<ArchiveBook>,
     on_back: EventHandler<()>,
 ) -> Element {
     let mut search_query = use_signal(|| "".to_string());
     let mut results = use_signal(Vec::<ArchiveBook>::new);
     let mut is_loading = use_signal(|| false);
     let mut error_msg = use_signal(|| None::<String>);
-    let mut downloading_ids = use_signal(HashSet::<String>::new);
-    let mut success_ids = use_signal(HashSet::<String>::new);
 
-    // Initial search load
     use_effect(move || {
         spawn(async move {
             is_loading.set(true);
@@ -46,66 +41,6 @@ pub fn ExploreView(
                     Err(e) => error_msg.set(Some(e)),
                 }
                 is_loading.set(false);
-            });
-        }
-    };
-
-    let on_download = {
-        let on_import_book = on_import_book.clone();
-        move |book: ArchiveBook| {
-            let id = book.identifier.clone();
-            let book_clone = book.clone();
-            let on_import = on_import_book.clone();
-            downloading_ids.write().insert(id.clone());
-
-            spawn(async move {
-                match get_archive_epub_file(&id).await {
-                    Ok(Some(epub_name)) => {
-                        let app_dir = crate::db::Database::get_app_dir();
-                        let books_dir = app_dir.join("books");
-                        let _ = std::fs::create_dir_all(&books_dir);
-                        let clean_filename = id.replace(|c: char| !c.is_alphanumeric(), "_");
-                        let dest_path = books_dir.join(format!("{}.epub", clean_filename));
-
-                        match download_archive_book(&id, &epub_name, &dest_path).await {
-                            Ok(_) => {
-                                if let Ok(parsed) = parse_epub(&dest_path) {
-                                    let now = chrono::Utc::now().timestamp();
-                                    let new_book = Book {
-                                        id: uuid::Uuid::new_v4().to_string(),
-                                        title: if !parsed.title.is_empty() { parsed.title } else { book_clone.title.clone() },
-                                        author: if !parsed.author.is_empty() { parsed.author } else { book_clone.creator.clone().unwrap_or_else(|| "Unknown".to_string()) },
-                                        file_path: dest_path.to_string_lossy().to_string(),
-                                        format: "epub".to_string(),
-                                        cover_image: parsed.cover_image.or_else(|| Some(book_clone.thumbnail_url())),
-                                        total_chapters: parsed.chapters.len(),
-                                        current_chapter: 0,
-                                        progress_percent: 0.0,
-                                        last_read_at: now,
-                                        created_at: now,
-                                    };
-
-                                    if let Ok(db) = crate::db::Database::init() {
-                                        let _ = db.insert_or_update_book(&new_book);
-                                    }
-
-                                    success_ids.write().insert(id.clone());
-                                    on_import.call(new_book);
-                                }
-                            }
-                            Err(e) => {
-                                error_msg.set(Some(format!("Gagal mengunduh: {}", e)));
-                            }
-                        }
-                    }
-                    Ok(None) => {
-                        error_msg.set(Some("Format EPUB tidak tersedia untuk buku ini.".to_string()));
-                    }
-                    Err(e) => {
-                        error_msg.set(Some(format!("Error: {}", e)));
-                    }
-                }
-                downloading_ids.write().remove(&id);
             });
         }
     };
@@ -190,17 +125,16 @@ pub fn ExploreView(
                     for book in results.read().iter() {
                         {
                             let id = book.identifier.clone();
-                            let is_down = downloading_ids.read().contains(&id);
-                            let is_done = success_ids.read().contains(&id);
-                            let mut download_handler = on_download.clone();
+                            let b_clone = book.clone();
+                            let on_dl = on_request_download.clone();
                             rsx! {
                                 ExploreBookItem {
                                     key: "{id}",
                                     book: book.clone(),
                                     theme: theme,
-                                    is_downloading: is_down,
-                                    is_downloaded: is_done,
-                                    on_download: move |b| download_handler(b),
+                                    is_downloading: false,
+                                    is_downloaded: false,
+                                    on_download: move |_| on_dl.call(b_clone.clone()),
                                 }
                             }
                         }

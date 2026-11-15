@@ -1,17 +1,18 @@
 use dioxus::prelude::*;
 use crate::db::models::{Book, UserSettings};
-use crate::engine::EpubBook;
+use crate::engine::{ArchiveBook, EpubBook};
 use crate::theme::ThemeMode;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum View {
     Shelf,
     Explore,
+    Stats,
+    Settings,
     Reader {
         book: Book,
-        epub: EpubBook,
+        epub: Option<EpubBook>,
     },
-    Settings,
 }
 
 #[derive(Clone, Copy)]
@@ -19,7 +20,7 @@ pub struct AppState {
     pub current_view: Signal<View>,
     pub books: Signal<Vec<Book>>,
     pub search_query: Signal<String>,
-    pub active_filter: Signal<String>, // "all", "reading", "finished"
+    pub active_filter: Signal<String>,
     pub theme: Signal<ThemeMode>,
     pub settings: Signal<UserSettings>,
     pub current_chapter: Signal<usize>,
@@ -27,8 +28,9 @@ pub struct AppState {
     pub is_typography_open: Signal<bool>,
     pub is_inbook_search_open: Signal<bool>,
     pub is_ai_open: Signal<bool>,
-    pub is_stats_open: Signal<bool>,
-    pub is_backup_open: Signal<bool>,
+    pub toast_message: Signal<Option<String>>,
+    pub last_back_press: Signal<i64>,
+    pub format_modal_book: Signal<Option<ArchiveBook>>,
     pub ai_term: Signal<String>,
     pub inbook_keyword: Signal<Option<String>>,
 }
@@ -48,8 +50,9 @@ impl AppState {
             is_typography_open: Signal::new(false),
             is_inbook_search_open: Signal::new(false),
             is_ai_open: Signal::new(false),
-            is_stats_open: Signal::new(false),
-            is_backup_open: Signal::new(false),
+            toast_message: Signal::new(None),
+            last_back_press: Signal::new(0),
+            format_modal_book: Signal::new(None),
             ai_term: Signal::new(String::new()),
             inbook_keyword: Signal::new(None),
         }
