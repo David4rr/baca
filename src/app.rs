@@ -29,34 +29,70 @@ pub fn App() -> Element {
         move || {
             let db = db.clone();
             spawn(async move {
-                let file = rfd::AsyncFileDialog::new()
-                    .add_filter("E-Books", &["epub"])
-                    .set_title("Select EPUB Book")
-                    .pick_file()
-                    .await;
+                #[cfg(not(target_os = "android"))]
+                {
+                    let file = rfd::AsyncFileDialog::new()
+                        .add_filter("E-Books", &["epub"])
+                        .set_title("Select EPUB Book")
+                        .pick_file()
+                        .await;
 
-                if let Some(handle) = file {
-                    let path = handle.path();
-                    if let Ok(parsed) = parse_epub(path) {
-                        let now = chrono::Utc::now().timestamp();
-                        let book_id = uuid::Uuid::new_v4().to_string();
-                        let new_book = Book {
-                            id: book_id,
-                            title: parsed.title,
-                            author: parsed.author,
-                            file_path: path.to_string_lossy().to_string(),
-                            format: "epub".to_string(),
-                            cover_image: parsed.cover_image,
-                            total_chapters: parsed.chapters.len(),
-                            current_chapter: 0,
-                            progress_percent: 0.0,
-                            last_read_at: now,
-                            created_at: now,
-                        };
+                    if let Some(handle) = file {
+                        let path = handle.path();
+                        if let Ok(parsed) = parse_epub(path) {
+                            let now = chrono::Utc::now().timestamp();
+                            let book_id = uuid::Uuid::new_v4().to_string();
+                            let new_book = Book {
+                                id: book_id,
+                                title: parsed.title,
+                                author: parsed.author,
+                                file_path: path.to_string_lossy().to_string(),
+                                format: "epub".to_string(),
+                                cover_image: parsed.cover_image,
+                                total_chapters: parsed.chapters.len(),
+                                current_chapter: 0,
+                                progress_percent: 0.0,
+                                last_read_at: now,
+                                created_at: now,
+                            };
 
-                        if db.insert_or_update_book(&new_book).is_ok() {
-                            let mut books = state.books.write();
-                            books.insert(0, new_book);
+                            if db.insert_or_update_book(&new_book).is_ok() {
+                                let mut books = state.books.write();
+                                books.insert(0, new_book);
+                            }
+                        }
+                    }
+                }
+
+                #[cfg(target_os = "android")]
+                {
+                    let scan_dir = std::path::PathBuf::from("/sdcard/Download");
+                    if let Ok(entries) = std::fs::read_dir(scan_dir) {
+                        for entry in entries.flatten() {
+                            let p = entry.path();
+                            if p.extension().and_then(|s| s.to_str()) == Some("epub") {
+                                if let Ok(parsed) = parse_epub(&p) {
+                                    let now = chrono::Utc::now().timestamp();
+                                    let book_id = uuid::Uuid::new_v4().to_string();
+                                    let new_book = Book {
+                                        id: book_id,
+                                        title: parsed.title,
+                                        author: parsed.author,
+                                        file_path: p.to_string_lossy().to_string(),
+                                        format: "epub".to_string(),
+                                        cover_image: parsed.cover_image,
+                                        total_chapters: parsed.chapters.len(),
+                                        current_chapter: 0,
+                                        progress_percent: 0.0,
+                                        last_read_at: now,
+                                        created_at: now,
+                                    };
+                                    if db.insert_or_update_book(&new_book).is_ok() {
+                                        let mut books = state.books.write();
+                                        books.insert(0, new_book);
+                                    }
+                                }
+                            }
                         }
                     }
                 }

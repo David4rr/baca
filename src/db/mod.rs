@@ -28,10 +28,20 @@ impl Database {
     }
 
     fn get_db_path() -> PathBuf {
-        let mut path = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
-        path.push("baca_reader");
-        path.push("library.db");
-        path
+        #[cfg(target_os = "android")]
+        {
+            let mut path = PathBuf::from("/data/data/com.baca.reader/files");
+            let _ = std::fs::create_dir_all(&path);
+            path.push("library.db");
+            path
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            let mut path = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
+            path.push("baca_reader");
+            path.push("library.db");
+            path
+        }
     }
 
     fn create_tables(&self) -> Result<()> {

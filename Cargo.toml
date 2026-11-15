@@ -5,8 +5,11 @@ edition = "2021"
 authors = ["David4rr", "ilhamdanials"]
 description = "A modern, local-first e-book reader (EPUB & PDF) built with Pure Rust & Dioxus"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
-dioxus = { version = "0.6", features = ["desktop"] }
+dioxus = { version = "0.6" }
 dioxus-logger = "0.6"
 tokio = { version = "1.40", features = ["full"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
@@ -18,7 +21,13 @@ chrono = { version = "0.4", features = ["serde"] }
 dirs = "5.0"
 uuid = { version = "1.10", features = ["v4", "serde"] }
 base64 = "0.22"
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
 rfd = "0.15"
+dioxus = { version = "0.6", features = ["desktop"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+dioxus = { version = "0.6", features = ["mobile"] }
 
 [dev-dependencies]
 tempfile = "3.13"
@@ -29,3 +38,13 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+[profile.wasm-dev]
+inherits = "dev"
+opt-level = 1
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"

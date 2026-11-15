@@ -1,0 +1,9 @@
+[application]
+name = "baca"
+default_platform = "desktop"
+out_dir = "dist"
+asset_dir = "assets"
+
+[android]
+package_name = "com.baca.reader"
+app_title = "Baca"
