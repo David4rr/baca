@@ -5,7 +5,7 @@ pub mod sanitizer;
 pub mod starter_books;
 pub mod starter_covers;
 
-pub use archive::{download_archive_book, get_archive_epub_file, get_archive_format_file, search_archive, ArchiveBook};
+pub use archive::{download_archive_book, download_archive_book_with_progress, get_archive_epub_file, get_archive_format_file, search_archive, ArchiveBook};
 pub use epub::{parse_epub, Chapter, EpubBook, TocItem};
 pub use gemini::ask_gemini;
 pub use sanitizer::sanitize_html;

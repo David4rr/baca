@@ -8,20 +8,38 @@ pub fn ExploreHeader(
     on_back: EventHandler<()>,
     on_search: EventHandler<String>,
 ) -> Element {
-    let search_handler = on_search.clone();
+    let mut local_text = use_signal(|| search_query.clone());
+    let mut debounce_id = use_signal(|| 0u64);
+
+    let mut on_input_change = {
+        let on_search = on_search.clone();
+        move |val: String| {
+            local_text.set(val.clone());
+            let next_id = *debounce_id.read() + 1;
+            debounce_id.set(next_id);
+            let search = on_search.clone();
+
+            spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(380)).await;
+                if *debounce_id.read() == next_id {
+                    search.call(val.trim().to_string());
+                }
+            });
+        }
+    };
 
     rsx! {
         div {
-            class: "explore-header flex flex-col mb-6 select-none",
+            class: "explore-header flex flex-col mb-6 select-none w-full",
 
-            // 1. Back button & Title
+            // 1. Symmetrical Top Bar
             div {
-                class: "flex items-start justify-between gap-4 mb-6",
+                class: "flex items-center justify-between gap-4 mb-6",
                 div {
-                    class: "flex items-center gap-3.5",
+                    class: "flex items-center gap-3",
                     button {
                         class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all flex-shrink-0",
-                        style: "width: 40px; height: 40px; min-width: 40px; min-height: 40px; background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                        style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
                         title: "Kembali ke Rak Buku",
                         onclick: move |_| on_back.call(()),
                         svg {
@@ -39,28 +57,28 @@ pub fn ExploreHeader(
                     }
                     div {
                         h1 {
-                            class: "font-serif text-[28px] sm:text-[34px] font-medium tracking-tight leading-none",
+                            class: "font-serif text-[26px] sm:text-[32px] font-medium tracking-tight leading-tight",
                             style: "color: {theme.text_primary()};",
-                            "Jelajahi Arsip Buku"
+                            "Cari Buku Online"
                         }
                         p {
-                            class: "font-sans text-[13px] mt-1.5 opacity-70",
+                            class: "font-sans text-xs opacity-60 mt-0.5",
                             style: "color: {theme.text_secondary()};",
-                            "Ribuan karya klasik dunia domain publik (Gutenberg & Internet Archive)"
+                            "Katalog publik Project Gutenberg & Internet Archive"
                         }
                     }
                 }
             }
 
-            // 2. Search Input
+            // 2. Search Input with Real Space Support & Debounce
             div {
                 class: "relative w-full",
                 input {
-                    class: "w-full pl-11 pr-4 py-3 rounded-2xl border text-sm outline-none transition-all duration-200 focus:ring-2",
+                    class: "w-full pl-11 pr-10 py-3 rounded-2xl border text-sm outline-none transition-all duration-200 focus:ring-2",
                     style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
-                    placeholder: "Ketik judul buku, pengarang (misal: Sherlock Holmes, Jane Austen)...",
-                    value: "{search_query}",
-                    oninput: move |e| search_handler(e.value()),
+                    placeholder: "Ketik judul buku atau nama pengarang...",
+                    value: "{local_text}",
+                    oninput: move |e| on_input_change(e.value()),
                 }
                 div {
                     class: "absolute left-4 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none",
@@ -74,6 +92,20 @@ pub fn ExploreHeader(
                         stroke_width: "2",
                         circle { cx: "11", cy: "11", r: "8" }
                         line { x1: "21", y1: "21", x2: "16.65", y2: "16.65" }
+                    }
+                }
+                if !local_text.read().is_empty() {
+                    button {
+                        class: "absolute right-3.5 top-1/2 -translate-y-1/2 opacity-40 hover:opacity-100 p-1 text-xs transition-opacity",
+                        style: "color: {theme.text_secondary()};",
+                        onclick: {
+                            let on_search = on_search.clone();
+                            move |_| {
+                                local_text.set(String::new());
+                                on_search.call(String::new());
+                            }
+                        },
+                        "✕"
                     }
                 }
             }

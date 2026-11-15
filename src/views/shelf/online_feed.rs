@@ -1,11 +1,14 @@
 use dioxus::prelude::*;
+use crate::components::MorphingDownloadButton;
+use crate::db::models::Book;
 use crate::engine::{search_archive, ArchiveBook};
 use crate::theme::ThemeMode;
 
 #[component]
 pub fn OnlineFeed(
     theme: ThemeMode,
-    on_download_book: EventHandler<ArchiveBook>,
+    downloaded_ids: Vec<String>,
+    on_imported_book: EventHandler<Book>,
 ) -> Element {
     let mut selected_category = use_signal(|| "classics".to_string());
     let mut online_books = use_signal(Vec::<ArchiveBook>::new);
@@ -32,11 +35,11 @@ pub fn OnlineFeed(
 
     rsx! {
         div {
-            class: "mt-12 flex flex-col gap-5",
+            class: "mt-12 flex flex-col gap-5 w-full",
 
             // Section Header
             div {
-                class: "flex flex-col sm:flex-row sm:items-end justify-between gap-2 select-none",
+                class: "flex flex-col sm:flex-row sm:items-end justify-between gap-3 select-none w-full",
                 div {
                     class: "flex flex-col",
                     h2 {
@@ -78,7 +81,7 @@ pub fn OnlineFeed(
             // Books Grid or Loading
             if *is_loading.read() && online_books.read().is_empty() {
                 div {
-                    class: "py-12 flex flex-col items-center justify-center gap-3",
+                    class: "py-12 flex flex-col items-center justify-center gap-3 w-full",
                     div {
                         class: "w-6 h-6 border-2 border-t-transparent rounded-full animate-spin",
                         style: "border-color: {theme.accent_color()}; border-top-color: transparent;",
@@ -91,20 +94,22 @@ pub fn OnlineFeed(
                 }
             } else {
                 div {
-                    class: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4",
+                    class: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full",
                     for book in online_books.read().iter().take(6) {
                         {
-                            let b_clone = book.clone();
-                            let on_dl = on_download_book.clone();
+                            let id = book.identifier.clone();
+                            let is_done = downloaded_ids.contains(&id);
+                            let on_imp = on_imported_book.clone();
                             rsx! {
                                 div {
-                                    class: "p-4 rounded-2xl border flex gap-3.5 items-center shadow-sm hover:shadow-md transition-all",
+                                    key: "{id}",
+                                    class: "p-4 rounded-3xl border flex gap-3.5 items-center shadow-sm hover:shadow-md transition-all justify-between",
                                     style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()};",
 
-                                    // Cover Thumbnail
+                                    // Cover Thumbnail with Depth
                                     div {
-                                        class: "w-14 h-20 rounded-lg overflow-hidden flex-shrink-0 shadow-sm border",
-                                        style: "border-color: {theme.border_color()}; background-color: {theme.bg_color()};",
+                                        class: "book-cover-realistic w-14 h-20 rounded-xl overflow-hidden flex-shrink-0 shadow-sm border",
+                                        style: "border-color: {theme.border_color()}; background-color: {theme.surface_subtle()};",
                                         img {
                                             class: "w-full h-full object-cover",
                                             src: "{book.thumbnail_url()}",
@@ -113,7 +118,7 @@ pub fn OnlineFeed(
                                         }
                                     }
 
-                                    // Details & Download Button
+                                    // Details & Morphing Download Button
                                     div {
                                         class: "flex flex-col flex-1 min-w-0 justify-between h-20 py-0.5",
                                         div {
@@ -134,23 +139,27 @@ pub fn OnlineFeed(
                                             class: "flex items-center justify-between mt-auto pt-1",
                                             div {
                                                 class: "flex items-center gap-1",
-                                                span {
-                                                    class: "px-1.5 py-0.5 rounded text-[9px] font-sans font-bold uppercase",
-                                                    style: "background-color: {theme.accent_color()}15; color: {theme.accent_color()};",
-                                                    "EPUB"
+                                                if book.has_epub {
+                                                    span {
+                                                        class: "px-1.5 py-0.5 rounded text-[9px] font-sans font-bold uppercase",
+                                                        style: "background-color: {theme.accent_color()}18; color: {theme.accent_color()};",
+                                                        "EPUB"
+                                                    }
                                                 }
-                                                span {
-                                                    class: "px-1.5 py-0.5 rounded text-[9px] font-sans font-bold uppercase",
-                                                    style: "background-color: #ef444415; color: #ef4444;",
-                                                    "PDF"
+                                                if book.has_pdf {
+                                                    span {
+                                                        class: "px-1.5 py-0.5 rounded text-[9px] font-sans font-bold uppercase",
+                                                        style: "background-color: #ef444418; color: #ef4444;",
+                                                        "PDF"
+                                                    }
                                                 }
                                             }
 
-                                            button {
-                                                class: "px-2.5 py-1 rounded-full text-xs font-sans font-medium apple-tap transition-all flex items-center gap-1 border",
-                                                style: "background-color: {theme.bg_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
-                                                onclick: move |_| on_dl.call(b_clone.clone()),
-                                                "Unduh"
+                                            MorphingDownloadButton {
+                                                book: book.clone(),
+                                                theme: theme,
+                                                is_already_downloaded: is_done,
+                                                on_imported: move |b| on_imp.call(b),
                                             }
                                         }
                                     }

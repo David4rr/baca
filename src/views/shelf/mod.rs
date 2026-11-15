@@ -6,7 +6,6 @@ pub mod recent_grid;
 
 use dioxus::prelude::*;
 use crate::db::models::Book;
-use crate::engine::ArchiveBook;
 use crate::theme::ThemeMode;
 pub use dock::FloatingDock;
 pub use empty_state::EmptyShelfState;
@@ -19,11 +18,12 @@ pub fn ShelfView(
     books: Vec<Book>,
     theme: ThemeMode,
     search_query: String,
+    downloaded_ids: Vec<String>,
     on_search: EventHandler<String>,
     on_select_book: EventHandler<Book>,
     on_delete_book: EventHandler<String>,
     on_import: EventHandler<()>,
-    on_download_online_book: EventHandler<ArchiveBook>,
+    on_import_book: EventHandler<Book>,
     on_explore: EventHandler<()>,
     on_stats: EventHandler<()>,
     on_settings: EventHandler<()>,
@@ -52,7 +52,7 @@ pub fn ShelfView(
 
     rsx! {
         div {
-            class: "shelf-view flex-1 flex flex-col w-full max-w-4xl mx-auto px-5 sm:px-8 pt-8 pb-32 transition-colors duration-300 animate-fade-in",
+            class: "shelf-view flex-1 flex flex-col w-full max-w-4xl mx-auto px-4 sm:px-6 md:px-8 pt-8 pb-32 transition-colors duration-300 animate-fade-in",
 
             // 1. Editorial Header
             div {
@@ -117,10 +117,10 @@ pub fn ShelfView(
                 }
             }
 
-            // Search Bar
+            // Search Bar with Symmetrical Spacing
             if *is_search_visible.read() || !search_query.is_empty() {
                 div {
-                    class: "mb-6 animate-slide-up",
+                    class: "mb-6 animate-slide-up w-full",
                     div {
                         class: "relative w-full",
                         input {
@@ -180,7 +180,8 @@ pub fn ShelfView(
             // 3. Online Books Discovery Stream (Bottom of Home Screen)
             OnlineFeed {
                 theme: theme,
-                on_download_book: move |b| on_download_online_book.call(b),
+                downloaded_ids: downloaded_ids,
+                on_imported_book: move |b| on_import_book.call(b),
             }
 
             // 4. Floating Apple Island Dock

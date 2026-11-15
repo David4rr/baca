@@ -508,11 +508,15 @@ pub fn App() -> Element {
                         books: state.books.read().clone(),
                         theme: current_theme,
                         search_query: state.search_query.read().clone(),
+                        downloaded_ids: state.books.read().iter().map(|b| b.id.clone()).collect(),
                         on_search: move |q| *state.search_query.write() = q,
                         on_select_book: handle_select_book,
                         on_delete_book: handle_delete,
                         on_import: move |_| import_for_shelf(),
-                        on_download_online_book: move |b| *state.format_modal_book.write() = Some(b),
+                        on_import_book: move |b: Book| {
+                            let mut books = state.books.write();
+                            books.insert(0, b);
+                        },
                         on_explore: move |_| *state.current_view.write() = View::Explore,
                         on_stats: move |_| *state.current_view.write() = View::Stats,
                         on_settings: move |_| *state.current_view.write() = View::Settings,
@@ -521,7 +525,11 @@ pub fn App() -> Element {
                 View::Explore => rsx! {
                     ExploreView {
                         theme: current_theme,
-                        on_request_download: move |b| *state.format_modal_book.write() = Some(b),
+                        downloaded_ids: state.books.read().iter().map(|b| b.id.clone()).collect(),
+                        on_import_book: move |b: Book| {
+                            let mut books = state.books.write();
+                            books.insert(0, b);
+                        },
                         on_back: move |_| *state.current_view.write() = View::Shelf,
                     }
                 },

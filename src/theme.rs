@@ -83,10 +83,10 @@ impl ThemeMode {
 
     pub fn accent_color(&self) -> &'static str {
         match self {
-            Self::Warm => "#1C1917",    // Pitch espresso button
-            Self::Light => "#0F172A",   // Obsidian button
-            Self::Amoled => "#F4F4F5",  // Bone white button
-            Self::Slate => "#38BDF8",   // Sky blue accent
+            Self::Warm => "#C25E2E",    // 5% Apple Books Terracotta Amber
+            Self::Light => "#2563EB",   // 5% Apple Royal Blue
+            Self::Amoled => "#F59E0B",  // 5% Luminous Amber
+            Self::Slate => "#38BDF8",   // 5% Sky Cyan
         }
     }
 

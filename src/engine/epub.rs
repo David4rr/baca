@@ -190,10 +190,10 @@ fn resolve_path(base_dir: &str, relative_path: &str) -> String {
 }
 
 fn read_zip_entry_to_string(archive: &mut ZipArchive<File>, entry_name: &str) -> Result<String, String> {
-    let mut entry = archive.by_name(entry_name).map_err(|e| format!("Zip entry '{}' not found: {}", entry_name, e))?;
-    let mut contents = String::new();
-    entry.read_to_string(&mut contents).map_err(|e| format!("Failed to read '{}': {}", entry_name, e))?;
-    Ok(contents)
+    let mut entry = archive.by_name(entry_name).map_err(|e| format!("Zip entry '{}' tidak ditemukan: {}", entry_name, e))?;
+    let mut buffer = Vec::new();
+    entry.read_to_end(&mut buffer).map_err(|e| format!("Gagal membaca '{}': {}", entry_name, e))?;
+    Ok(String::from_utf8_lossy(&buffer).to_string())
 }
 
 fn read_zip_entry_as_base64(archive: &mut ZipArchive<File>, entry_name: &str, media_type: &str) -> Option<String> {
