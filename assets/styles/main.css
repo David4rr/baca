@@ -19,8 +19,11 @@ html, body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
-    user-select: none;
-    -webkit-user-select: none;
+}
+
+button, a, input, select {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
 /* Custom Fine Scrollbar */

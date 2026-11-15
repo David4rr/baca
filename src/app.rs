@@ -11,30 +11,33 @@ use crate::views::{ExploreView, ReaderView, ShelfView};
 
 #[component]
 pub fn App() -> Element {
-    let db = std::sync::Arc::new(match Database::init() {
-        Ok(d) => d,
-        Err(e) => {
-            eprintln!("Database init failed, falling back to in-memory: {}", e);
-            Database::memory().expect("In-memory database must succeed")
-        }
+    let (db, mut state) = use_hook(|| {
+        let db = std::sync::Arc::new(match Database::init() {
+            Ok(d) => d,
+            Err(e) => {
+                eprintln!("Database init failed, falling back to in-memory: {}", e);
+                Database::memory().expect("In-memory database must succeed")
+            }
+        });
+
+        let initial_books = {
+            let existing = db.get_all_books().unwrap_or_default();
+            if existing.is_empty() {
+                let app_dir = Database::get_app_dir();
+                let starters = crate::engine::ensure_starter_library(&app_dir);
+                for b in &starters {
+                    let _ = db.insert_or_update_book(b);
+                }
+                starters
+            } else {
+                existing
+            }
+        };
+        let initial_settings = db.get_settings().unwrap_or_default();
+        let state = AppState::new(initial_books, initial_settings);
+        (db, state)
     });
 
-    let initial_books = {
-        let existing = db.get_all_books().unwrap_or_default();
-        if existing.is_empty() {
-            let app_dir = Database::get_app_dir();
-            let starters = crate::engine::ensure_starter_library(&app_dir);
-            for b in &starters {
-                let _ = db.insert_or_update_book(b);
-            }
-            starters
-        } else {
-            existing
-        }
-    };
-    let initial_settings = db.get_settings().unwrap_or_default();
-
-    let mut state = AppState::new(initial_books, initial_settings);
     let mut stats_data = use_signal(Vec::<DailyReadingStats>::new);
 
     let current_view = state.current_view.read().clone();
@@ -134,12 +137,25 @@ pub fn App() -> Element {
         let path = book.file_path.clone();
         let book_clone = book.clone();
         spawn(async move {
-            if let Ok(parsed) = parse_epub(&path) {
-                *state.current_chapter.write() = book_clone.current_chapter;
-                *state.current_view.write() = View::Reader {
-                    book: book_clone,
-                    epub: parsed,
-                };
+            let parsed_result = if let Some(starter) = crate::engine::get_starter_book_epub(&path) {
+                Ok(starter)
+            } else if let Some(starter) = crate::engine::get_starter_book_epub(&book_clone.title) {
+                Ok(starter)
+            } else {
+                parse_epub(&path)
+            };
+
+            match parsed_result {
+                Ok(parsed) => {
+                    *state.current_chapter.write() = book_clone.current_chapter;
+                    *state.current_view.write() = View::Reader {
+                        book: book_clone,
+                        epub: parsed,
+                    };
+                }
+                Err(e) => {
+                    eprintln!("Error opening book: {}", e);
+                }
             }
         });
     };

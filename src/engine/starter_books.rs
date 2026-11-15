@@ -3,6 +3,109 @@ use std::path::Path;
 use zip::write::SimpleFileOptions;
 use zip::ZipWriter;
 use crate::db::models::Book;
+use crate::engine::{Chapter, EpubBook, TocItem};
+
+pub fn get_starter_book_epub(path_or_id: &str) -> Option<EpubBook> {
+    let lower = path_or_id.to_lowercase();
+    if lower.contains("psychology") {
+        let chapters_data = vec![
+            ("No One's Crazy", "<p>Your personal experiences with money make up maybe 0.00000001% of what's happened in the world, but maybe 80% of how you think the world works.</p>"),
+            ("Luck & Risk", "<p>Nothing is as good or as bad as it looks. Luck and risk are both the reality that every outcome in life is guided by forces other than individual effort alone.</p>"),
+            ("Never Enough", "<p>When rich people do crazy things. There is no reason to risk what you have and need for what you don't have and don't need.</p>"),
+            ("Confounding Compounding", "<p>More than 99% of Warren Buffett's wealth came after his 50th birthday. His skill is investing, but his secret is time.</p>"),
+            ("The Wealth Equation", r#"<p><mark style="background-color: #FEF08A; padding: 2px 6px; border-radius: 4px; color: #1C1917;">Wealth is not about how much you make, but how much you keep, and how hard it works for you.</mark></p>
+<p>Most people overestimate their earning power, and underestimate the power of compounding and patience.</p>
+<p>The first rule of wealth: don't lose money. The second rule: don't forget the first rule.</p>
+<p>Doing well with money has a little to do with how smart you are and a lot to do with how you behave. And behavior is hard to teach, even to really smart people.</p>"#),
+            ("Freedom", "<p>The highest form of wealth is the ability to wake up every morning and say, 'I can do whatever I want today.'</p>"),
+            ("Man in the Car Paradox", "<p>No one is impressed with your possessions as much as you are.</p>"),
+            ("Save Money", "<p>You can build wealth without a high income, but you have no chance of building wealth without a high savings rate.</p>"),
+            ("Reasonable > Rational", "<p>Do not aim to be coldly rational when making financial decisions. Aim to be pretty reasonable.</p>"),
+            ("Surprise!", "<p>Things that have never happened before happen all the time.</p>"),
+            ("Room for Error", "<p>The most important part of every plan is planning on your plan not going according to plan.</p>"),
+            ("You'll Change", "<p>Long-term planning is harder than it seems because people's goals and desires change over time.</p>"),
+        ];
+
+        let mut chapters = Vec::new();
+        let mut toc = Vec::new();
+        for (i, (t, h)) in chapters_data.into_iter().enumerate() {
+            toc.push(TocItem { title: t.to_string(), chapter_index: i });
+            chapters.push(Chapter { index: i, title: t.to_string(), html_content: h.to_string() });
+        }
+        return Some(EpubBook {
+            title: "The Psychology of Money".to_string(),
+            author: "Morgan Housel".to_string(),
+            cover_image: None,
+            toc,
+            chapters,
+        });
+    }
+
+    if lower.contains("atomic") {
+        let chapters_data = vec![
+            ("The Surprising Power of Atomic Habits", "<p>Changes that seem small and unimportant at first will compound into remarkable results if you're willing to stick with them for years.</p>"),
+            ("How Your Habits Shape Your Identity", "<p>Your habits are how you embody your identity. When you make your bed every day, you embody the identity of an organized person.</p>"),
+            ("The 4 Laws of Behavior Change", "<p>Make it obvious. Make it attractive. Make it easy. Make it satisfying.</p>"),
+        ];
+        let mut chapters = Vec::new();
+        let mut toc = Vec::new();
+        for (i, (t, h)) in chapters_data.into_iter().enumerate() {
+            toc.push(TocItem { title: t.to_string(), chapter_index: i });
+            chapters.push(Chapter { index: i, title: t.to_string(), html_content: h.to_string() });
+        }
+        return Some(EpubBook {
+            title: "Atomic Habits".to_string(),
+            author: "James Clear".to_string(),
+            cover_image: None,
+            toc,
+            chapters,
+        });
+    }
+
+    if lower.contains("sapiens") {
+        let chapters_data = vec![
+            ("An Animal of No Significance", "<p>About 14 billion years ago, matter, energy, time and space came into being in what is known as the Big Bang.</p>"),
+            ("The Tree of Knowledge", "<p>The Cognitive Revolution is the point when history declared its independence from biology.</p>"),
+            ("A Day in the Life of Adam and Eve", "<p>To understand human nature, history and psychology, we must get into the minds of our hunter-gatherer ancestors.</p>"),
+        ];
+        let mut chapters = Vec::new();
+        let mut toc = Vec::new();
+        for (i, (t, h)) in chapters_data.into_iter().enumerate() {
+            toc.push(TocItem { title: t.to_string(), chapter_index: i });
+            chapters.push(Chapter { index: i, title: t.to_string(), html_content: h.to_string() });
+        }
+        return Some(EpubBook {
+            title: "Sapiens".to_string(),
+            author: "Yuval Noah Harari".to_string(),
+            cover_image: None,
+            toc,
+            chapters,
+        });
+    }
+
+    if lower.contains("midnight") {
+        let chapters_data = vec![
+            ("A Conversation About Rain", "<p>Nineteen years before she decided to die, Nora Seed sat in the warmth of the small library at Hazeldene School.</p>"),
+            ("The Midnight Library", "<p>Between life and death there is a library, and within that library, the shelves go on for ever. Every book provides a chance to try another life you could have lived.</p>"),
+            ("The Many Lives of Nora Seed", "<p>It is easy to mourn the lives we aren't living. Easy to wish we'd developed other talents, said other yeses.</p>"),
+        ];
+        let mut chapters = Vec::new();
+        let mut toc = Vec::new();
+        for (i, (t, h)) in chapters_data.into_iter().enumerate() {
+            toc.push(TocItem { title: t.to_string(), chapter_index: i });
+            chapters.push(Chapter { index: i, title: t.to_string(), html_content: h.to_string() });
+        }
+        return Some(EpubBook {
+            title: "The Midnight Library".to_string(),
+            author: "Matt Haig".to_string(),
+            cover_image: None,
+            toc,
+            chapters,
+        });
+    }
+
+    None
+}
 
 pub fn create_epub_file(
     path: &Path,

@@ -8,4 +8,4 @@ pub use archive::{download_archive_book, get_archive_epub_file, search_archive, 
 pub use epub::{parse_epub, Chapter, EpubBook, TocItem};
 pub use gemini::ask_gemini;
 pub use sanitizer::sanitize_html;
-pub use starter_books::ensure_starter_library;
+pub use starter_books::{ensure_starter_library, get_starter_book_epub};
