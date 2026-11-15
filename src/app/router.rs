@@ -1,0 +1,173 @@
+use dioxus::prelude::*;
+use crate::components::*;
+use crate::db::models::{Book, DailyReadingStats, UserSettings};
+use crate::engine::updater::ReleaseInfo;
+use crate::state::{AppState, View};
+use crate::theme::ThemeMode;
+use crate::views::{ExploreView, ReaderView, SettingsView, ShelfView, StatsView};
+
+#[component]
+pub fn AppRouter(
+    mut state: AppState,
+    stats_data: Signal<Vec<DailyReadingStats>>,
+    available_update: Signal<Option<ReleaseInfo>>,
+    mut show_update_modal: Signal<bool>,
+    current_theme: ThemeMode,
+    settings: UserSettings,
+    on_select_book: EventHandler<Book>,
+    on_delete_book: EventHandler<String>,
+    on_import: EventHandler<()>,
+    on_change_chapter: EventHandler<usize>,
+    on_change_settings: EventHandler<UserSettings>,
+    on_select_format: EventHandler<(crate::engine::archive::ArchiveBook, String)>,
+    on_export_backup: EventHandler<()>,
+    on_restore_backup: EventHandler<String>,
+) -> Element {
+    let current_view = state.current_view.read().clone();
+
+    rsx! {
+        match &current_view {
+            View::Shelf => rsx! {
+                ShelfView {
+                    books: state.books.read().clone(),
+                    theme: current_theme,
+                    search_query: state.search_query.read().clone(),
+                    downloaded_ids: state.books.read().iter().map(|b| b.id.clone()).collect(),
+                    has_update: available_update.read().is_some(),
+                    on_search: move |q| *state.search_query.write() = q,
+                    on_select_book: move |b| on_select_book.call(b),
+                    on_delete_book: move |id| on_delete_book.call(id),
+                    on_import: move |_| on_import.call(()),
+                    on_import_book: move |b: Book| {
+                        state.books.write().insert(0, b);
+                    },
+                    on_explore: move |_| *state.current_view.write() = View::Explore,
+                    on_stats: move |_| *state.current_view.write() = View::Stats,
+                    on_settings: move |_| *state.current_view.write() = View::Settings,
+                }
+            },
+            View::Explore => rsx! {
+                ExploreView {
+                    theme: current_theme,
+                    downloaded_ids: state.books.read().iter().map(|b| b.id.clone()).collect(),
+                    on_import_book: move |b: Book| {
+                        state.books.write().insert(0, b);
+                    },
+                    on_back: move |_| *state.current_view.write() = View::Shelf,
+                }
+            },
+            View::Stats => rsx! {
+                StatsView {
+                    stats: stats_data.read().clone(),
+                    books: state.books.read().clone(),
+                    theme: current_theme,
+                    on_back: move |_| *state.current_view.write() = View::Shelf,
+                }
+            },
+            View::Settings => rsx! {
+                SettingsView {
+                    settings: settings.clone(),
+                    theme: current_theme,
+                    on_change_settings: move |s| on_change_settings.call(s),
+                    on_export_backup: move |_| on_export_backup.call(()),
+                    on_restore_backup: move |json| on_restore_backup.call(json),
+                    on_show_update_modal: move |_| {
+                        show_update_modal.set(true);
+                    },
+                    on_back: move |_| *state.current_view.write() = View::Shelf,
+                }
+            },
+            View::Reader { book, epub } => rsx! {
+                ReaderView {
+                    book: book.clone(),
+                    epub: epub.clone(),
+                    current_chapter: *state.current_chapter.read(),
+                    theme: current_theme,
+                    settings: settings.clone(),
+                    on_change_chapter: move |ch| on_change_chapter.call(ch),
+                    on_back: move |_| *state.current_view.write() = View::Shelf,
+                    on_toggle_typography: move |_| {
+                        let cur = *state.is_typography_open.read();
+                        *state.is_typography_open.write() = !cur;
+                    },
+                    on_toggle_toc: move |_| {
+                        let cur = *state.is_toc_open.read();
+                        *state.is_toc_open.write() = !cur;
+                    },
+                    on_toggle_search: move |_| *state.is_inbook_search_open.write() = true,
+                    on_toggle_ai: move |_| *state.is_ai_open.write() = true,
+                    on_change_theme: {
+                        let mut s = settings.clone();
+                        move |theme_str: String| {
+                            s.theme = theme_str;
+                            on_change_settings.call(s.clone());
+                        }
+                    },
+                }
+
+                if let Some(epub_data) = epub.as_ref() {
+                    TocDrawer {
+                        toc: epub_data.toc.clone(),
+                        current_index: *state.current_chapter.read(),
+                        theme: current_theme,
+                        is_open: *state.is_toc_open.read(),
+                        on_close: move |_| *state.is_toc_open.write() = false,
+                        on_select: move |ch| on_change_chapter.call(ch),
+                    }
+                    FontControls {
+                        settings: settings.clone(),
+                        theme: current_theme,
+                        is_open: *state.is_typography_open.read(),
+                        on_close: move |_| *state.is_typography_open.write() = false,
+                        on_change_settings: move |s| on_change_settings.call(s),
+                    }
+                    InBookSearchModal {
+                        chapters: epub_data.chapters.clone(),
+                        theme: current_theme,
+                        is_open: *state.is_inbook_search_open.read(),
+                        on_close: move |_| *state.is_inbook_search_open.write() = false,
+                        on_select_match: move |(ch_idx, _)| on_change_chapter.call(ch_idx),
+                    }
+                    AiExplanationModal {
+                        theme: current_theme,
+                        initial_text: state.ai_term.read().clone(),
+                        api_key: settings.gemini_api_key.clone(),
+                        model: settings.gemini_model.clone(),
+                        is_open: *state.is_ai_open.read(),
+                        on_close: move |_| *state.is_ai_open.write() = false,
+                        on_save_key: {
+                            let mut s = settings.clone();
+                            move |k: String| {
+                                s.gemini_api_key = Some(k);
+                                on_change_settings.call(s.clone());
+                            }
+                        },
+                    }
+                }
+            },
+        }
+
+        FormatModal {
+            book: state.format_modal_book.read().clone(),
+            theme: current_theme,
+            on_select_format: move |pair| on_select_format.call(pair),
+            on_close: move |_| *state.format_modal_book.write() = None,
+        }
+
+        if *show_update_modal.read() {
+            if let Some(rel) = available_update.read().clone() {
+                UpdateModal {
+                    release: rel,
+                    theme: current_theme,
+                    on_close: move |_| show_update_modal.set(false),
+                }
+            }
+        }
+
+        AppleToast {
+            message: state.toast_message.read().clone(),
+            theme: current_theme,
+            on_dismiss: move |_| *state.toast_message.write() = None,
+        }
+    }
+}

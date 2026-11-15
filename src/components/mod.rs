@@ -1,25 +1,21 @@
 pub mod ai_modal;
-pub mod backup_modal;
 pub mod book_card;
 pub mod font_controls;
 pub mod format_modal;
 pub mod inbook_search;
 pub mod morphing_download_button;
 pub mod navbar;
-pub mod stats_modal;
 pub mod toast;
 pub mod toc_drawer;
 pub mod update_modal;
 
 pub use ai_modal::AiExplanationModal;
-pub use backup_modal::BackupModal;
 pub use book_card::BookCard;
 pub use font_controls::FontControls;
 pub use format_modal::FormatModal;
 pub use inbook_search::InBookSearchModal;
 pub use morphing_download_button::MorphingDownloadButton;
 pub use navbar::Navbar;
-pub use stats_modal::StatsModal;
 pub use toast::AppleToast;
 pub use toc_drawer::TocDrawer;
 pub use update_modal::UpdateModal;

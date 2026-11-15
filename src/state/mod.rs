@@ -15,7 +15,7 @@ pub enum View {
     },
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct AppState {
     pub current_view: Signal<View>,
     pub books: Signal<Vec<Book>>,
