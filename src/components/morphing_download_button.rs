@@ -7,7 +7,6 @@ use crate::theme::ThemeMode;
 #[derive(Debug, Clone, PartialEq)]
 pub enum MorphState {
     Idle,
-    FormatSelect,
     Downloading { format: String },
     Success,
     Failed(String),
@@ -22,22 +21,22 @@ pub fn MorphingDownloadButton(
 ) -> Element {
     let mut state = use_signal(|| if is_already_downloaded { MorphState::Success } else { MorphState::Idle });
     let mut progress = use_signal(|| 0.05f32);
+    let mut is_dropdown_open = use_signal(|| false);
 
     let has_epub = book.has_epub;
     let has_pdf = book.has_pdf;
-
     let book_arc = std::sync::Arc::new(book);
 
     let run_download = {
         let book_arc = book_arc.clone();
         move |fmt: &'static str| {
+            is_dropdown_open.set(false);
             let fmt_str = fmt.to_string();
             state.set(MorphState::Downloading { format: fmt_str.clone() });
             progress.set(0.08);
 
             let b = (*book_arc).clone();
             let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<f32>();
-
             spawn(async move {
                 while let Some(pct) = rx.recv().await { progress.set(pct); }
             });
@@ -56,22 +55,19 @@ pub fn MorphingDownloadButton(
         }
     };
 
-    let mut dl_idle = run_download.clone();
     let mut dl_epub = run_download.clone();
     let mut dl_pdf = run_download;
 
     rsx! {
-        div { class: "inline-flex items-center transition-all duration-300",
+        div { class: "relative inline-flex items-center select-none",
             match state.read().clone() {
                 MorphState::Idle => rsx! {
                     button {
-                        class: "h-9 px-4 rounded-full font-sans text-xs font-semibold flex items-center gap-1.5 shadow-sm apple-tap transition-all hover:opacity-90",
+                        class: "h-9 px-3.5 rounded-full font-sans text-xs font-semibold flex items-center gap-1.5 shadow-sm apple-tap transition-all hover:opacity-90",
                         style: "background-color: {theme.surface_color()}; border: 1px solid {theme.border_color()}; color: {theme.text_primary()};",
                         onclick: move |e| {
                             e.stop_propagation();
-                            if has_epub && has_pdf { state.set(MorphState::FormatSelect); }
-                            else if has_pdf { dl_idle("pdf"); }
-                            else { dl_idle("epub"); }
+                            is_dropdown_open.toggle();
                         },
                         svg { class: "w-3.5 h-3.5 opacity-70", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.2", stroke_linecap: "round", stroke_linejoin: "round",
                             path { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }
@@ -79,32 +75,52 @@ pub fn MorphingDownloadButton(
                             line { x1: "12", y1: "15", x2: "12", y2: "3" }
                         }
                         span { "Download" }
+                        svg { class: "w-3 h-3 opacity-60 ml-0.5", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5", stroke_linecap: "round", stroke_linejoin: "round",
+                            polyline { points: "6 9 12 15 18 9" }
+                        }
                     }
-                },
-                MorphState::FormatSelect => rsx! {
-                    div {
-                        class: "h-9 px-1.5 rounded-full flex items-center gap-1 shadow-md border animate-spring-pop",
-                        style: "background-color: {theme.surface_color()}; border-color: {theme.accent_color()}40;",
-                        if has_epub {
-                            button {
-                                class: "h-7 px-2.5 rounded-full text-[11px] font-sans font-semibold text-white shadow-xs apple-tap",
-                                style: "background-color: {theme.accent_color()};",
-                                onclick: move |e| { e.stop_propagation(); dl_epub("epub"); },
-                                "EPUB"
+
+                    // True Apple Floating Dropdown Menu
+                    if *is_dropdown_open.read() {
+                        div {
+                            class: "absolute right-0 top-full mt-2 z-40 w-64 rounded-2xl p-2.5 shadow-2xl border backdrop-blur-xl animate-spring-pop flex flex-col gap-1.5",
+                            style: "background-color: {theme.surface_color()}EE; border-color: {theme.border_color()};",
+                            onclick: |e| e.stop_propagation(),
+
+                            div { class: "flex items-center justify-between px-2 pt-1 pb-1.5 border-b", style: "border-color: {theme.border_color()};",
+                                span { class: "text-[10px] font-sans font-bold uppercase tracking-wider opacity-50", "Pilih Format Buku" }
+                                button { class: "w-5 h-5 rounded-full flex items-center justify-center text-xs opacity-50 hover:opacity-100", onclick: move |_| is_dropdown_open.set(false), "✕" }
                             }
-                        }
-                        if has_pdf {
-                            button {
-                                class: "h-7 px-2.5 rounded-full text-[11px] font-sans font-semibold border apple-tap",
-                                style: "border-color: {theme.border_color()}; color: {theme.text_primary()};",
-                                onclick: move |e| { e.stop_propagation(); dl_pdf("pdf"); },
-                                "PDF"
+
+                            if has_epub {
+                                button {
+                                    class: "w-full flex items-center justify-between p-2 rounded-xl text-left apple-tap transition-all hover:bg-black/5 dark:hover:bg-white/5",
+                                    onclick: move |e| { e.stop_propagation(); dl_epub("epub"); },
+                                    div { class: "flex items-center gap-2.5",
+                                        div { class: "w-8 h-8 rounded-lg flex items-center justify-center font-sans font-bold text-[10px] text-white", style: "background-color: {theme.accent_color()};", "EPUB" }
+                                        div { class: "flex flex-col",
+                                            span { class: "font-sans text-xs font-semibold leading-tight", style: "color: {theme.text_primary()};", "EPUB E-Book" }
+                                            span { class: "font-sans text-[10px] opacity-60 leading-tight mt-0.5", "Format Teks Adaptif" }
+                                        }
+                                    }
+                                    span { class: "px-2 py-0.5 rounded-full text-[10px] font-mono font-medium border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20", "~680 KB" }
+                                }
                             }
-                        }
-                        button {
-                            class: "w-6 h-6 rounded-full flex items-center justify-center text-xs opacity-50 hover:opacity-100",
-                            onclick: move |e| { e.stop_propagation(); state.set(MorphState::Idle); },
-                            "✕"
+
+                            if has_pdf {
+                                button {
+                                    class: "w-full flex items-center justify-between p-2 rounded-xl text-left apple-tap transition-all hover:bg-black/5 dark:hover:bg-white/5",
+                                    onclick: move |e| { e.stop_propagation(); dl_pdf("pdf"); },
+                                    div { class: "flex items-center gap-2.5",
+                                        div { class: "w-8 h-8 rounded-lg flex items-center justify-center font-sans font-bold text-[10px] text-white bg-rose-500", "PDF" }
+                                        div { class: "flex flex-col",
+                                            span { class: "font-sans text-xs font-semibold leading-tight", style: "color: {theme.text_primary()};", "Dokumen PDF" }
+                                            span { class: "font-sans text-[10px] opacity-60 leading-tight mt-0.5", "Tata Letak Cetak Asli" }
+                                        }
+                                    }
+                                    span { class: "px-2 py-0.5 rounded-full text-[10px] font-mono font-medium border bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20", "~4.2 MB" }
+                                }
+                            }
                         }
                     }
                 },

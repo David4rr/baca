@@ -27,30 +27,26 @@ pub fn InBookSearchModal(
     let mut do_search = move |q_str: String| {
         let q = q_str.trim().to_string();
         query.set(q.clone());
-        if q.len() < 2 { hits.set(Vec::new()); return; }
+        if q.chars().count() < 2 {
+            hits.set(Vec::new());
+            return;
+        }
 
-        let q_lower = q.to_lowercase();
         let mut results = Vec::new();
-
         for (idx, ch) in chapters.iter().enumerate() {
             let plain = strip_tags(&ch.html_content);
-            let plain_lower = plain.to_lowercase();
-            let mut start_pos = 0;
-
-            while let Some(found_idx) = plain_lower[start_pos..].find(&q_lower) {
-                let actual = start_pos + found_idx;
-                let b_start = actual.saturating_sub(40);
+            let matches = search_in_text(&plain, &q);
+            for (before, matched, after) in matches {
                 results.push(SearchHit {
                     chapter_index: idx,
                     chapter_title: ch.title.clone(),
-                    snippet_before: plain[b_start..actual].trim_start().to_string(),
-                    matched_term: plain[actual..actual + q.len()].to_string(),
-                    snippet_after: plain[actual + q.len()..(actual + q.len() + 60).min(plain.len())].trim_end().to_string(),
+                    snippet_before: before,
+                    matched_term: matched,
+                    snippet_after: after,
                 });
-                if results.len() >= 50 { break; }
-                start_pos = actual + q.len();
+                if results.len() >= 40 { break; }
             }
-            if results.len() >= 50 { break; }
+            if results.len() >= 40 { break; }
         }
         hits.set(results);
     };
@@ -69,18 +65,18 @@ pub fn InBookSearchModal(
                 }
 
                 div { class: "px-6 py-2.5 text-[11px] font-sans font-medium uppercase tracking-wider opacity-50 border-b", style: "border-color: {theme.border_color()}; background-color: {theme.surface_subtle()};",
-                    if query().len() < 2 { "Ketik minimal 2 huruf untuk mencari" } else { "{hits.read().len()} Hasil Ditemukan" }
+                    if query().chars().count() < 2 { "Ketik minimal 2 huruf untuk mencari" } else { "{hits.read().len()} Hasil Ditemukan" }
                 }
 
                 div { class: "flex-1 overflow-y-auto p-4 space-y-2",
-                    if hits.read().is_empty() && query().len() >= 2 {
+                    if hits.read().is_empty() && query().chars().count() >= 2 {
                         div { class: "py-16 text-center opacity-40 text-xs font-sans", "Tidak ada teks yang cocok dalam buku ini." }
                     } else {
                         for hit in hits.read().iter() {
                             {
                                 let (ch_idx, term) = (hit.chapter_index, hit.matched_term.clone());
                                 rsx! {
-                                    div { class: "p-3.5 rounded-2xl border apple-tap cursor-pointer shadow-sm", style: "border-color: {theme.border_color()}; background-color: {theme.surface_color()};",
+                                    div { class: "p-3.5 rounded-2xl border apple-tap cursor-pointer shadow-sm transition-all hover:scale-[1.01]", style: "border-color: {theme.border_color()}; background-color: {theme.surface_color()};",
                                         onclick: move |_| { on_select_match.call((ch_idx, term.clone())); on_close.call(()); },
                                         div { class: "text-[11px] font-sans font-semibold uppercase tracking-wider mb-1 opacity-60", "{hit.chapter_title}" }
                                         p { class: "font-serif text-[13px] leading-relaxed line-clamp-2",
@@ -97,6 +93,36 @@ pub fn InBookSearchModal(
             }
         }
     }
+}
+
+/// 100% UTF-8 safe search using character indices. Zero byte boundary slicing panic.
+fn search_in_text(plain: &str, q: &str) -> Vec<(String, String, String)> {
+    let q_lower_chars: Vec<char> = q.to_lowercase().chars().collect();
+    let q_len = q_lower_chars.len();
+    if q_len == 0 { return Vec::new(); }
+
+    let plain_chars: Vec<char> = plain.chars().collect();
+    let plain_lower_chars: Vec<char> = plain.to_lowercase().chars().collect();
+    let total_len = plain_lower_chars.len();
+    if total_len < q_len { return Vec::new(); }
+
+    let mut matches = Vec::new();
+    let mut i = 0;
+    while i + q_len <= total_len {
+        if plain_lower_chars[i..i + q_len] == q_lower_chars[..] {
+            let start = i.saturating_sub(40);
+            let before: String = plain_chars[start..i].iter().collect();
+            let matched: String = plain_chars[i..i + q_len].iter().collect();
+            let end = (i + q_len + 60).min(plain_chars.len());
+            let after: String = plain_chars[i + q_len..end].iter().collect();
+            matches.push((before.trim_start().to_string(), matched, after.trim_end().to_string()));
+            if matches.len() >= 25 { break; }
+            i += q_len;
+        } else {
+            i += 1;
+        }
+    }
+    matches
 }
 
 fn strip_tags(html: &str) -> String {

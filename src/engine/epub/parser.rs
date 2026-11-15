@@ -3,78 +3,38 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use zip::ZipArchive;
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use super::sanitizer::sanitize_html;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct TocItem {
-    pub title: String,
-    pub chapter_index: usize,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Chapter {
-    pub index: usize,
-    pub title: String,
-    pub html_content: String,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct EpubBook {
-    pub title: String,
-    pub author: String,
-    pub cover_image: Option<String>,
-    pub toc: Vec<TocItem>,
-    pub chapters: Vec<Chapter>,
-}
+use super::images::{embed_images_into_html, normalize_zip_path, read_zip_entry_as_base64};
+use super::models::{Chapter, EpubBook, TocItem};
+use crate::engine::sanitizer::sanitize_html;
 
 pub fn parse_epub<P: AsRef<Path>>(path: P) -> Result<EpubBook, String> {
     let file = File::open(&path).map_err(|e| format!("Failed to open file: {}", e))?;
     let mut archive = ZipArchive::new(file).map_err(|e| format!("Invalid ZIP/EPUB: {}", e))?;
 
-    // 1. Locate rootfile from META-INF/container.xml
     let opf_path = get_opf_path(&mut archive)?;
     let opf_dir = Path::new(&opf_path).parent().unwrap_or(Path::new("")).to_str().unwrap_or("").to_string();
 
-    // 2. Read OPF content
     let opf_content = read_zip_entry_to_string(&mut archive, &opf_path)?;
-
-    // 3. Extract Metadata, Manifest, and Spine
     let (title, author, cover_id) = parse_opf_metadata(&opf_content);
     let manifest = parse_opf_manifest(&opf_content);
     let spine = parse_opf_spine(&opf_content);
 
-    // 4. Extract Cover Image if available
-    let cover_image = if let Some(cid) = cover_id {
-        if let Some((href, media_type)) = manifest.get(&cid) {
-            let full_href = resolve_path(&opf_dir, href);
-            read_zip_entry_as_base64(&mut archive, &full_href, media_type)
-        } else {
-            None
-        }
-    } else {
-        // Fallback: look for item with "cover" in id or href in manifest
-        let mut found = None;
-        for (id, (href, media_type)) in &manifest {
-            if (id.to_lowercase().contains("cover") || href.to_lowercase().contains("cover"))
-                && (media_type.starts_with("image/")) {
-                let full_href = resolve_path(&opf_dir, href);
-                found = read_zip_entry_as_base64(&mut archive, &full_href, media_type);
-                if found.is_some() { break; }
-            }
-        }
-        found
-    };
+    let cover_image = extract_cover_image(&mut archive, &opf_dir, &manifest, cover_id.as_deref());
 
-    // 5. Extract Chapters from Spine
     let mut chapters = Vec::new();
     let mut toc = Vec::new();
 
     for (idx, item_id) in spine.iter().enumerate() {
         if let Some((href, _)) = manifest.get(item_id) {
-            let full_href = resolve_path(&opf_dir, href);
+            let full_href = normalize_zip_path(&opf_dir, href);
+            let chapter_dir = Path::new(&full_href).parent().unwrap_or(Path::new("")).to_str().unwrap_or("").to_string();
+
             if let Ok(raw_html) = read_zip_entry_to_string(&mut archive, &full_href) {
-                let sanitized = sanitize_html(&raw_html);
+                // 1. Embed images directly as Base64 Data URIs
+                let html_with_images = embed_images_into_html(&raw_html, &chapter_dir, &mut archive);
+                // 2. Sanitize scripts, iframes while preserving safe typography & images
+                let sanitized = sanitize_html(&html_with_images);
                 let chapter_title = extract_title_or_heading(&raw_html, idx + 1);
 
                 toc.push(TocItem {
@@ -170,6 +130,30 @@ fn parse_opf_spine(opf: &str) -> Vec<String> {
     spine
 }
 
+fn extract_cover_image(
+    archive: &mut ZipArchive<File>,
+    opf_dir: &str,
+    manifest: &HashMap<String, (String, String)>,
+    cover_id: Option<&str>,
+) -> Option<String> {
+    if let Some(cid) = cover_id {
+        if let Some((href, media_type)) = manifest.get(cid) {
+            let full_href = normalize_zip_path(opf_dir, href);
+            return read_zip_entry_as_base64(archive, &full_href, media_type);
+        }
+    }
+    for (id, (href, media_type)) in manifest {
+        if (id.to_lowercase().contains("cover") || href.to_lowercase().contains("cover"))
+            && media_type.starts_with("image/") {
+            let full_href = normalize_zip_path(opf_dir, href);
+            if let Some(img) = read_zip_entry_as_base64(archive, &full_href, media_type) {
+                return Some(img);
+            }
+        }
+    }
+    None
+}
+
 fn extract_attr(line: &str, attr_name: &str) -> Option<String> {
     let target = format!("{}=\"", attr_name);
     if let Some(start) = line.find(&target) {
@@ -181,30 +165,11 @@ fn extract_attr(line: &str, attr_name: &str) -> Option<String> {
     None
 }
 
-fn resolve_path(base_dir: &str, relative_path: &str) -> String {
-    if base_dir.is_empty() {
-        relative_path.to_string()
-    } else {
-        format!("{}/{}", base_dir.trim_end_matches('/'), relative_path.trim_start_matches('/'))
-    }
-}
-
 fn read_zip_entry_to_string(archive: &mut ZipArchive<File>, entry_name: &str) -> Result<String, String> {
     let mut entry = archive.by_name(entry_name).map_err(|e| format!("Zip entry '{}' tidak ditemukan: {}", entry_name, e))?;
     let mut buffer = Vec::new();
     entry.read_to_end(&mut buffer).map_err(|e| format!("Gagal membaca '{}': {}", entry_name, e))?;
     Ok(String::from_utf8_lossy(&buffer).to_string())
-}
-
-fn read_zip_entry_as_base64(archive: &mut ZipArchive<File>, entry_name: &str, media_type: &str) -> Option<String> {
-    if let Ok(mut entry) = archive.by_name(entry_name) {
-        let mut buffer = Vec::new();
-        if entry.read_to_end(&mut buffer).is_ok() {
-            let b64 = BASE64.encode(&buffer);
-            return Some(format!("data:{};base64,{}", media_type, b64));
-        }
-    }
-    None
 }
 
 fn extract_title_or_heading(html: &str, default_index: usize) -> String {

@@ -10,7 +10,7 @@ use crate::theme::ThemeMode;
 pub use canvas::ReaderCanvas;
 pub use pdf_canvas::PdfCanvas;
 pub use scrubber::ReaderScrubber;
-pub use top_bar::ReaderTopBar;
+pub use top_bar::{ReaderTopBar, ReadingMode};
 
 #[component]
 pub fn ReaderView(
@@ -27,6 +27,8 @@ pub fn ReaderView(
     on_toggle_ai: EventHandler<()>,
     on_change_theme: EventHandler<String>,
 ) -> Element {
+    let mut reading_mode = use_signal(|| ReadingMode::Scroll);
+
     // If book is a PDF or EPUB failed to parse, render PDF Canvas
     if book.format.to_lowercase() == "pdf" || epub.is_none() {
         return rsx! {
@@ -64,6 +66,8 @@ pub fn ReaderView(
         _ => "'Newsreader', 'Playfair Display', Georgia, serif".to_string(),
     };
 
+    let cur_mode = *reading_mode.read();
+
     rsx! {
         div {
             class: "reader-screen flex-1 flex flex-col items-center relative overflow-y-auto min-h-screen selection:bg-amber-200 transition-colors duration-300 animate-card-morph",
@@ -72,6 +76,14 @@ pub fn ReaderView(
             // 1. Floating Apple Top Navigation Bar
             ReaderTopBar {
                 theme: theme,
+                reading_mode: cur_mode,
+                on_toggle_mode: move |_| {
+                    if *reading_mode.read() == ReadingMode::Scroll {
+                        reading_mode.set(ReadingMode::Paged);
+                    } else {
+                        reading_mode.set(ReadingMode::Scroll);
+                    }
+                },
                 on_back: move |_| on_back.call(()),
                 on_toggle_search: move |_| on_toggle_search.call(()),
                 on_toggle_ai: move |_| on_toggle_ai.call(()),
@@ -88,6 +100,7 @@ pub fn ReaderView(
                 font_size: settings.font_size,
                 line_height: settings.line_height,
                 theme: theme,
+                reading_mode: cur_mode,
                 on_change_chapter: move |ch| on_change_chapter.call(ch),
                 on_toggle_ai: move |_| on_toggle_ai.call(()),
             }

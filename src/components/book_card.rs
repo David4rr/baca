@@ -12,15 +12,16 @@ pub fn BookCard(
     let book_clone = book.clone();
     let book_id = book.id.clone();
     let progress = (book.progress_percent * 100.0).round() as u32;
+    let is_pdf = book.format.to_lowercase() == "pdf";
 
     rsx! {
         div {
-            class: "book-card group relative flex flex-col cursor-pointer apple-tap select-none",
+            class: "book-card group relative flex flex-col cursor-pointer apple-tap select-none transition-all duration-300 hover:-translate-y-1",
             onclick: move |_| on_select.call(book_clone.clone()),
 
-            // Cover Container with Apple-standard realistic 3D depth
+            // 1. Cover Container with Apple-standard realistic 3D depth & spine
             div {
-                class: "book-cover-realistic relative w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-md border",
+                class: "book-cover-realistic relative w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 border",
                 style: "border-color: {theme.border_color()}; background-color: {theme.surface_subtle()};",
 
                 if let Some(cover) = &book.cover_image {
@@ -32,76 +33,91 @@ pub fn BookCard(
                     }
                 } else {
                     div {
-                        class: "w-full h-full flex flex-col justify-between p-3.5 select-none",
-                        style: "border-left: 4px solid {theme.accent_color()}; background-color: {theme.surface_color()};",
+                        class: "w-full h-full flex flex-col justify-between p-4 select-none relative overflow-hidden",
+                        style: "background: linear-gradient(135deg, {theme.surface_color()}, {theme.surface_subtle()});",
+
+                        div { class: "flex items-center justify-between",
+                            span {
+                                class: "px-2 py-0.5 rounded-full text-[9px] font-sans font-bold uppercase tracking-wider",
+                                style: if is_pdf { "background-color: #ef444420; color: #ef4444;" } else { "background-color: {theme.accent_color()}20; color: {theme.accent_color()};" },
+                                if is_pdf { "PDF" } else { "EPUB" }
+                            }
+                        }
 
                         div {
-                            class: "font-serif text-[13px] font-semibold leading-tight line-clamp-3",
+                            class: "font-serif text-[15px] font-medium leading-snug line-clamp-4 my-auto",
                             style: "color: {theme.text_primary()};",
                             "{book.title}"
                         }
 
-                        div {
-                            class: "w-6 h-0.5 rounded-full my-auto opacity-30",
-                            style: "background-color: {theme.text_muted()};",
+                        div { class: "pt-2 border-t border-black/5 dark:border-white/5",
+                            div {
+                                class: "font-sans text-[11px] font-medium opacity-70 truncate",
+                                style: "color: {theme.text_secondary()};",
+                                "{book.author}"
+                            }
                         }
+                    }
+                }
 
-                        div {
-                            class: "font-sans text-[10px] uppercase tracking-wider font-semibold opacity-70 truncate",
-                            style: "color: {theme.text_secondary()};",
-                            "{book.author}"
+                // Realistic 3D Spine Ridge Overlay
+                div { class: "absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/25 via-white/10 to-transparent pointer-events-none" }
+
+                // Format Pill on top-left of image
+                if book.cover_image.is_some() {
+                    div { class: "absolute top-2.5 left-2.5 z-10",
+                        span {
+                            class: "px-2 py-0.5 rounded-md text-[9px] font-sans font-bold uppercase tracking-wider backdrop-blur-md shadow-xs text-white",
+                            style: if is_pdf { "background-color: rgba(239, 68, 68, 0.85);" } else { "background-color: rgba(0, 0, 0, 0.55);" },
+                            if is_pdf { "PDF" } else { "EPUB" }
                         }
                     }
                 }
 
                 // Delete Button on Hover
                 button {
-                    class: "absolute top-2 right-2 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 apple-tap shadow-sm",
-                    style: "width: 26px; height: 26px; min-width: 26px; min-height: 26px;",
+                    class: "absolute top-2.5 right-2.5 z-10 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 apple-tap shadow-md backdrop-blur-sm",
+                    style: "width: 28px; height: 28px; min-width: 28px; min-height: 28px;",
                     title: "Hapus Buku",
                     onclick: move |e| {
                         e.stop_propagation();
                         on_delete.call(book_id.clone());
                     },
-                    svg {
-                        width: "12",
-                        height: "12",
-                        style: "width: 12px; height: 12px;",
-                        view_box: "0 0 24 24",
-                        fill: "none",
-                        stroke: "currentColor",
-                        stroke_width: "2.5",
-                        stroke_linecap: "round",
-                        stroke_linejoin: "round",
+                    svg { class: "w-3 h-3", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5", stroke_linecap: "round", stroke_linejoin: "round",
                         line { x1: "18", y1: "6", x2: "6", y2: "18" }
                         line { x1: "6", y1: "6", x2: "18", y2: "18" }
                     }
                 }
+
+                // Progress Bar Overlay on Bottom of Cover
+                if progress > 0 {
+                    div { class: "absolute bottom-0 inset-x-0 h-1 bg-black/30 backdrop-blur-xs",
+                        div {
+                            class: "h-full transition-all duration-500",
+                            style: if progress >= 100 { "width: 100%; background-color: #10B981;" } else { "width: {progress}%; background-color: {theme.accent_color()};" },
+                        }
+                    }
+                }
             }
 
-            // Book Details below cover (Refined Editorial Typography)
-            div {
-                class: "mt-2.5 flex flex-col",
+            // 2. Refined Editorial Typography
+            div { class: "mt-3 flex flex-col",
                 h3 {
-                    class: "font-serif text-[14px] font-medium truncate leading-tight transition-colors group-hover:opacity-80",
+                    class: "font-serif text-[14px] font-semibold line-clamp-1 leading-snug transition-colors group-hover:opacity-80",
                     style: "color: {theme.text_primary()};",
                     title: "{book.title}",
                     "{book.title}"
                 }
-                p {
-                    class: "font-sans text-[12px] truncate opacity-70 mt-0.5",
-                    style: "color: {theme.text_secondary()};",
-                    "{book.author}"
-                }
-                div {
-                    class: "font-sans text-[11px] font-medium mt-1",
-                    style: "color: {theme.text_secondary()};",
-                    if progress == 100 {
-                        span { class: "font-semibold text-emerald-600 dark:text-emerald-400", "Selesai" }
-                    } else if progress > 0 {
-                        span { "{progress}%" }
-                    } else {
-                        span { class: "opacity-60", "Baru" }
+                div { class: "flex items-center justify-between mt-0.5",
+                    p {
+                        class: "font-sans text-[12px] truncate opacity-65 flex-1 mr-2",
+                        style: "color: {theme.text_secondary()};",
+                        "{book.author}"
+                    }
+                    span {
+                        class: "font-sans text-[11px] font-semibold whitespace-nowrap",
+                        style: if progress >= 100 { "color: #10B981;" } else { "color: {theme.text_secondary()}; opacity: 0.8;" },
+                        if progress >= 100 { "Selesai" } else if progress > 0 { "{progress}%" } else { "Baru" }
                     }
                 }
             }
