@@ -7,6 +7,7 @@ pub fn UpdateModal(release: ReleaseInfo, theme: ThemeMode, on_close: EventHandle
     let mut is_downloading = use_signal(|| false);
     let mut progress = use_signal(|| 0.0f32);
     let mut download_complete = use_signal(|| false);
+    let mut saved_path = use_signal(|| Option::<String>::None);
     let mut error_msg = use_signal(|| Option::<String>::None);
 
     let current_ver = env!("CARGO_PKG_VERSION");
@@ -33,7 +34,11 @@ pub fn UpdateModal(release: ReleaseInfo, theme: ThemeMode, on_close: EventHandle
 
         spawn(async move {
             match download_update_package(&dl_url, &fname, move |pct| { let _ = tx.send(pct); }).await {
-                Ok(_) => { is_downloading.set(false); download_complete.set(true); }
+                Ok(path) => {
+                    is_downloading.set(false);
+                    saved_path.set(Some(path.to_string_lossy().to_string()));
+                    download_complete.set(true);
+                }
                 Err(e) => { is_downloading.set(false); error_msg.set(Some(e)); }
             }
         });
@@ -105,7 +110,12 @@ pub fn UpdateModal(release: ReleaseInfo, theme: ThemeMode, on_close: EventHandle
                     class: "flex flex-col gap-2.5 pt-2",
                     if *download_complete.read() {
                         div { class: "flex flex-col gap-2",
-                            div { class: "p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-medium text-center", "✓ Berkas berhasil diunduh!" }
+                            div { class: "p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-medium text-center flex flex-col gap-1",
+                                span { class: "font-semibold", "✓ Berkas berhasil diunduh!" }
+                                if let Some(path) = saved_path.read().as_ref() {
+                                    span { class: "text-[11px] opacity-75 font-mono truncate", "Tersimpan: {path}" }
+                                }
+                            }
                             a { class: "w-full py-3.5 rounded-2xl font-sans text-sm font-semibold flex items-center justify-center text-white shadow-md apple-tap", style: "background-color: {theme.accent_color()};", href: "{release.html_url}", target: "_blank", "Buka Laman Rilis & Pasang" }
                         }
                     } else if *is_downloading.read() {

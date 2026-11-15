@@ -85,12 +85,7 @@ pub async fn check_latest_release(current_version: &str) -> Result<Option<Releas
         .await
         .map_err(|e| format!("Gagal membaca data update: {}", e))?;
 
-    let clean_remote_version = release
-        .tag_name
-        .trim_start_matches('v')
-        .trim_start_matches('V')
-        .to_string();
-
+    let clean_remote_version = release.tag_name.trim_start_matches(['v', 'V']).to_string();
     let mut apk_url = None;
     let mut apk_size = None;
     let mut desktop_url = None;
@@ -107,9 +102,7 @@ pub async fn check_latest_release(current_version: &str) -> Result<Option<Releas
         }
     }
 
-    let is_newer = is_newer_version(&release.tag_name, current_version);
-
-    if is_newer {
+    if is_newer_version(&release.tag_name, current_version) {
         Ok(Some(ReleaseInfo {
             tag_name: release.tag_name.clone(),
             version: clean_remote_version,
@@ -129,12 +122,43 @@ pub async fn check_latest_release(current_version: &str) -> Result<Option<Releas
 
 /// Resolves directory where update files are temporarily stored.
 pub fn get_update_storage_dir() -> PathBuf {
-    let base = dirs::data_local_dir()
-        .or_else(dirs::home_dir)
-        .unwrap_or_else(|| PathBuf::from("."));
-    let update_dir = base.join("baca").join("updates");
-    let _ = std::fs::create_dir_all(&update_dir);
-    update_dir
+    let mut candidates = Vec::new();
+
+    #[cfg(target_os = "android")]
+    {
+        candidates.push(PathBuf::from("/sdcard/Download"));
+        candidates.push(PathBuf::from("/storage/emulated/0/Download"));
+        let app_dir = crate::db::Database::get_app_dir();
+        candidates.push(app_dir.join("updates"));
+        candidates.push(app_dir);
+    }
+
+    #[cfg(not(target_os = "android"))]
+    {
+        let app_dir = crate::db::Database::get_app_dir();
+        candidates.push(app_dir.join("updates"));
+        if let Some(data) = dirs::data_local_dir() {
+            candidates.push(data.join("baca").join("updates"));
+        }
+        if let Some(dl) = dirs::download_dir() {
+            candidates.push(dl.join("baca_updates"));
+        }
+    }
+
+    candidates.push(std::env::temp_dir().join("baca_updates"));
+    candidates.push(std::env::temp_dir());
+
+    for dir in candidates {
+        if std::fs::create_dir_all(&dir).is_ok() {
+            let test_file = dir.join(".write_test_baca");
+            if std::fs::write(&test_file, b"ok").is_ok() {
+                let _ = std::fs::remove_file(&test_file);
+                return dir;
+            }
+        }
+    }
+
+    std::env::temp_dir()
 }
 
 /// Downloads an update asset with real-time percentage progress reporting.
@@ -147,7 +171,8 @@ where
     F: Fn(f32) + Send + 'static,
 {
     let target_dir = get_update_storage_dir();
-    let file_path = target_dir.join(target_filename);
+    let _ = std::fs::create_dir_all(&target_dir);
+    let mut file_path = target_dir.join(target_filename);
 
     let client = reqwest::Client::builder()
         .user_agent("Mozilla/5.0 (compatible; Baca-Reader/3.3; +https://github.com/David4rr/baca)")
@@ -167,8 +192,16 @@ where
 
     let total_size = res.content_length().unwrap_or(0);
     use std::io::Write;
-    let mut file = std::fs::File::create(&file_path)
-        .map_err(|e| format!("Gagal membuat berkas lokal: {}", e))?;
+    let mut file = match std::fs::File::create(&file_path) {
+        Ok(f) => f,
+        Err(_) => {
+            let fallback_dir = std::env::temp_dir();
+            let _ = std::fs::create_dir_all(&fallback_dir);
+            file_path = fallback_dir.join(target_filename);
+            std::fs::File::create(&file_path)
+                .map_err(|e| format!("Gagal membuat berkas lokal: {}", e))?
+        }
+    };
 
     let mut downloaded: u64 = 0;
 

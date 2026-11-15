@@ -22,8 +22,8 @@ pub fn ReaderTopBar(
 
     rsx! {
         div {
-            class: "sticky top-0 z-30 w-full max-w-3xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between pointer-events-auto backdrop-blur-md transition-all duration-300 select-none",
-            style: "background-color: {theme.bg_color()}CC;",
+            class: "sticky top-0 z-30 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-[max(env(safe-area-inset-top,0px),0.85rem)] pb-3 flex items-center justify-between pointer-events-auto apple-nav-glass transition-all duration-300 select-none",
+            style: "background-color: {theme.bg_color()}DD;",
 
             // Circular Back Button (<)
             button {

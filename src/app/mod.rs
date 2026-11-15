@@ -129,8 +129,12 @@ pub fn App() -> Element {
         script { dangerous_inner_html: "{BACK_SCRIPT}" }
 
         div {
-            class: "app-root flex flex-col min-h-screen transition-colors duration-300 font-sans selection:bg-amber-200",
+            class: "app-root flex flex-col min-h-screen transition-colors duration-300 font-sans selection:bg-amber-200 relative",
             style: "background-color: {current_theme.bg_color()}; color: {current_theme.text_primary()};",
+
+            // Apple Progressive Blur Status Bar Shield
+            div { class: "apple-status-bar-shield", style: "background-color: {current_theme.bg_color()}30;" }
+            div { class: "apple-progressive-blur", style: "background-color: {current_theme.bg_color()}60;" }
 
             AppRouter {
                 state: state,
