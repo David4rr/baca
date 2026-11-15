@@ -1,0 +1,31 @@
+[package]
+name = "baca"
+version = "3.0.0"
+edition = "2021"
+authors = ["David4rr", "ilhamdanials"]
+description = "A modern, local-first e-book reader (EPUB & PDF) built with Pure Rust & Dioxus"
+
+[dependencies]
+dioxus = { version = "0.6", features = ["desktop"] }
+dioxus-logger = "0.6"
+tokio = { version = "1.40", features = ["full"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+thiserror = "2.0"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "5.0"
+uuid = { version = "1.10", features = ["v4", "serde"] }
+base64 = "0.22"
+rfd = "0.15"
+
+[dev-dependencies]
+tempfile = "3.13"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
