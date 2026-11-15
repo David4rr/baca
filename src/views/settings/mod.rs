@@ -1,13 +1,16 @@
 pub mod ai_section;
 pub mod backup_section;
 pub mod theme_section;
+pub mod update_section;
 
 use dioxus::prelude::*;
 use crate::db::models::UserSettings;
+use crate::engine::updater::ReleaseInfo;
 use crate::theme::ThemeMode;
 pub use ai_section::AiSection;
 pub use backup_section::BackupSection;
 pub use theme_section::ThemeSection;
+pub use update_section::UpdateSection;
 
 #[component]
 pub fn SettingsView(
@@ -16,10 +19,12 @@ pub fn SettingsView(
     on_change_settings: EventHandler<UserSettings>,
     on_export_backup: EventHandler<()>,
     on_restore_backup: EventHandler<String>,
+    on_show_update_modal: EventHandler<ReleaseInfo>,
     on_back: EventHandler<()>,
 ) -> Element {
     let settings_for_theme = settings.clone();
     let settings_for_ai = settings.clone();
+    let current_version = env!("CARGO_PKG_VERSION");
 
     rsx! {
         div {
@@ -93,7 +98,13 @@ pub fn SettingsView(
                     on_restore: move |json| on_restore_backup.call(json),
                 }
 
-                // 4. About App
+                // 4. Auto-Update Section
+                UpdateSection {
+                    theme: theme,
+                    on_show_modal: move |rel| on_show_update_modal.call(rel),
+                }
+
+                // 5. About App
                 div {
                     class: "p-6 rounded-3xl border shadow-sm flex items-center justify-between",
                     style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()};",
@@ -107,13 +118,13 @@ pub fn SettingsView(
                         span {
                             class: "font-sans text-xs opacity-60 mt-0.5",
                             style: "color: {theme.text_secondary()};",
-                            "Dibuat dengan Pure Rust & Dioxus • Versi 3.3.0"
+                            "Dibuat dengan Pure Rust & Dioxus • Versi {current_version}"
                         }
                     }
                     span {
-                        class: "px-3 py-1 rounded-full text-xs font-sans font-medium border",
+                        class: "px-3 py-1 rounded-full text-xs font-mono font-medium border",
                         style: "border-color: {theme.border_color()}; color: {theme.text_secondary()};",
-                        "v3.3.0"
+                        "v{current_version}"
                     }
                 }
             }

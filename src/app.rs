@@ -1,13 +1,14 @@
 use dioxus::prelude::*;
 use crate::components::{
     AiExplanationModal, AppleToast, FontControls, FormatModal, InBookSearchModal,
-    TocDrawer,
+    TocDrawer, UpdateModal,
 };
 use crate::db::models::{BackupData, Book, DailyReadingStats, UserSettings};
 use crate::db::Database;
 use crate::engine::{
     download_archive_book, get_archive_format_file, parse_epub, ArchiveBook,
 };
+use crate::engine::updater::{check_latest_release, ReleaseInfo};
 use crate::state::{AppState, View};
 use crate::theme::ThemeMode;
 use crate::views::{ExploreView, ReaderView, SettingsView, ShelfView, StatsView};
@@ -52,6 +53,26 @@ pub fn App() -> Element {
     });
 
     let mut stats_data = use_signal(Vec::<DailyReadingStats>::new);
+    let mut available_update = use_signal(|| None::<ReleaseInfo>);
+    let mut show_update_modal = use_signal(|| false);
+    let mut has_checked_update = use_signal(|| false);
+
+    // Auto-check for updates on application startup (subtle background task)
+    use_effect(move || {
+        if !*has_checked_update.read() {
+            has_checked_update.set(true);
+            spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+                let current_ver = env!("CARGO_PKG_VERSION");
+                if let Ok(Some(release)) = check_latest_release(current_ver).await {
+                    let tag = release.tag_name.clone();
+                    available_update.set(Some(release));
+                    show_update_modal.set(true);
+                    *state.toast_message.write() = Some(format!("Pembaruan Baca {} tersedia!", tag));
+                }
+            });
+        }
+    });
 
     // Refresh stats when opening stats view
     let db_stats = db.clone();
@@ -319,6 +340,11 @@ pub fn App() -> Element {
 
     // 7. Device Hardware Back-Stack Handler
     let mut handle_back_press = move || {
+        // If update modal open, close it
+        if *show_update_modal.read() {
+            show_update_modal.set(false);
+            return;
+        }
         // If format modal open, close it
         if state.format_modal_book.read().is_some() {
             *state.format_modal_book.write() = None;
@@ -509,6 +535,7 @@ pub fn App() -> Element {
                         theme: current_theme,
                         search_query: state.search_query.read().clone(),
                         downloaded_ids: state.books.read().iter().map(|b| b.id.clone()).collect(),
+                        has_update: available_update.read().is_some(),
                         on_search: move |q| *state.search_query.write() = q,
                         on_select_book: handle_select_book,
                         on_delete_book: handle_delete,
@@ -548,6 +575,10 @@ pub fn App() -> Element {
                         on_change_settings: change_settings.clone(),
                         on_export_backup: handle_export_backup,
                         on_restore_backup: handle_restore_backup,
+                        on_show_update_modal: move |rel| {
+                            available_update.set(Some(rel));
+                            show_update_modal.set(true);
+                        },
                         on_back: move |_| *state.current_view.write() = View::Shelf,
                     }
                 },
@@ -637,6 +668,17 @@ pub fn App() -> Element {
                 theme: current_theme,
                 on_select_format: handle_select_format,
                 on_close: move |_| *state.format_modal_book.write() = None,
+            }
+
+            // Global Auto-Update Apple Spring Modal
+            if *show_update_modal.read() {
+                if let Some(rel) = available_update.read().clone() {
+                    UpdateModal {
+                        release: rel,
+                        theme: current_theme,
+                        on_close: move |_| show_update_modal.set(false),
+                    }
+                }
             }
 
             // Global Floating Apple Toast Banner

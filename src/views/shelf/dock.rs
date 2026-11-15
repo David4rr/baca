@@ -4,6 +4,8 @@ use crate::theme::ThemeMode;
 #[component]
 pub fn FloatingDock(
     theme: ThemeMode,
+    #[props(default = false)]
+    has_update: bool,
     on_explore: EventHandler<()>,
     on_stats: EventHandler<()>,
     on_settings: EventHandler<()>,
@@ -77,10 +79,16 @@ pub fn FloatingDock(
 
             // 4. Settings & Backup
             button {
-                class: "apple-tap p-1.5 rounded-full transition-transform opacity-60 hover:opacity-100",
+                class: "apple-tap p-1.5 rounded-full transition-transform opacity-60 hover:opacity-100 relative",
                 style: "color: {theme.text_secondary()};",
                 title: "Cadangkan & Pengaturan",
                 onclick: move |_| on_settings.call(()),
+                if has_update {
+                    span {
+                        class: "w-2 h-2 rounded-full absolute top-0.5 right-0.5 animate-pulse",
+                        style: "background-color: {theme.accent_color()};",
+                    }
+                }
                 svg {
                     class: "w-5 h-5",
                     width: "20",

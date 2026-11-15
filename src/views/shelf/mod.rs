@@ -19,6 +19,8 @@ pub fn ShelfView(
     theme: ThemeMode,
     search_query: String,
     downloaded_ids: Vec<String>,
+    #[props(default = false)]
+    has_update: bool,
     on_search: EventHandler<String>,
     on_select_book: EventHandler<Book>,
     on_delete_book: EventHandler<String>,
@@ -187,6 +189,7 @@ pub fn ShelfView(
             // 4. Floating Apple Island Dock
             FloatingDock {
                 theme: theme,
+                has_update: has_update,
                 on_explore: move |_| on_explore.call(()),
                 on_stats: move |_| on_stats.call(()),
                 on_settings: move |_| on_settings.call(()),

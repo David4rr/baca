@@ -9,6 +9,7 @@ pub mod navbar;
 pub mod stats_modal;
 pub mod toast;
 pub mod toc_drawer;
+pub mod update_modal;
 
 pub use ai_modal::AiExplanationModal;
 pub use backup_modal::BackupModal;
@@ -21,3 +22,4 @@ pub use navbar::Navbar;
 pub use stats_modal::StatsModal;
 pub use toast::AppleToast;
 pub use toc_drawer::TocDrawer;
+pub use update_modal::UpdateModal;
