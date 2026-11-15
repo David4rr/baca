@@ -2,6 +2,17 @@ use baca::app::App;
 use dioxus::prelude::*;
 
 fn main() {
+    std::panic::set_hook(Box::new(|info| {
+        eprintln!("[Baca Panic] {:?}", info);
+        #[cfg(target_os = "android")]
+        {
+            use std::io::Write;
+            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/sdcard/Download/baca_crash.log") {
+                let _ = writeln!(f, "[Crash Log] {:?}", info);
+            }
+        }
+    }));
+
     #[cfg(not(target_os = "android"))]
     {
         use dioxus::desktop::{Config, WindowBuilder};

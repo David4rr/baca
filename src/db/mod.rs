@@ -14,10 +14,20 @@ impl Database {
         if let Some(parent) = db_path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let conn = Connection::open(db_path)?;
-        let db = Self { conn };
-        db.create_tables()?;
-        Ok(db)
+        match Connection::open(&db_path) {
+            Ok(conn) => {
+                let db = Self { conn };
+                if let Err(e) = db.create_tables() {
+                    eprintln!("[Baca DB] create_tables failed: {:?}, falling back to memory DB", e);
+                    return Self::memory();
+                }
+                Ok(db)
+            }
+            Err(e) => {
+                eprintln!("[Baca DB] Connection::open failed for {:?}: {:?}, falling back to memory DB", db_path, e);
+                Self::memory()
+            }
+        }
     }
 
     pub fn memory() -> Result<Self> {
@@ -30,15 +40,36 @@ impl Database {
     fn get_db_path() -> PathBuf {
         #[cfg(target_os = "android")]
         {
-            let mut path = PathBuf::from("/data/data/com.baca.reader/files");
-            let _ = std::fs::create_dir_all(&path);
-            path.push("library.db");
-            path
+            let pkg = std::fs::read_to_string("/proc/self/cmdline")
+                .map(|s| s.trim_matches('\0').trim().to_string())
+                .unwrap_or_default();
+
+            let mut candidates = Vec::new();
+            if !pkg.is_empty() {
+                candidates.push(format!("/data/data/{}/files", pkg));
+                candidates.push(format!("/data/user/0/{}/files", pkg));
+                candidates.push(format!("/data/data/{}/databases", pkg));
+            }
+            candidates.push("/data/data/com.example.Baca/files".to_string());
+            candidates.push("/data/data/com.baca.reader/files".to_string());
+            candidates.push("/sdcard/Download".to_string());
+
+            for dir_str in candidates {
+                let dir = PathBuf::from(&dir_str);
+                if std::fs::create_dir_all(&dir).is_ok() {
+                    let db_file = dir.join("library.db");
+                    if std::fs::OpenOptions::new().create(true).write(true).open(&db_file).is_ok() {
+                        return db_file;
+                    }
+                }
+            }
+            PathBuf::from("library.db")
         }
         #[cfg(not(target_os = "android"))]
         {
             let mut path = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
             path.push("baca_reader");
+            let _ = std::fs::create_dir_all(&path);
             path.push("library.db");
             path
         }

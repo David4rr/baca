@@ -10,8 +10,13 @@ use std::sync::Arc;
 
 #[component]
 pub fn App() -> Element {
-    // Database initialization
-    let db = use_hook(|| Arc::new(Database::init().expect("Failed to initialize database")));
+    // Database initialization with resilient fallback
+    let db = use_hook(|| {
+        Arc::new(Database::init().unwrap_or_else(|e| {
+            eprintln!("[Baca App] Database::init failed: {:?}, falling back to memory DB", e);
+            Database::memory().expect("In-memory database should never fail")
+        }))
+    });
     
     // Initial fetch from DB
     let initial_books = db.get_all_books().unwrap_or_default();
