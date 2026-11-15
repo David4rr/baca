@@ -1,6 +1,6 @@
 [package]
 name = "baca"
-version = "3.1.0"
+version = "3.2.0"
 edition = "2021"
 authors = ["David4rr", "ilhamdanials"]
 description = "A modern, local-first e-book reader (EPUB & PDF) built with Pure Rust & Dioxus"

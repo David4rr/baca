@@ -6,5 +6,6 @@ Cargo.lock
 *.db-journal
 *.apk
 *.tar.gz
+*.sha256
 node_modules/
 dist/

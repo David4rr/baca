@@ -13,54 +13,42 @@ pub fn BookCard(
     let book_id = book.id.clone();
     let progress = (book.progress_percent * 100.0).round() as u32;
 
-    let is_midnight = book.title.to_lowercase().contains("midnight");
-    let is_psychology = book.title.to_lowercase().contains("psychology");
-    let is_atomic = book.title.to_lowercase().contains("atomic");
-
-    let cover_bg = if is_midnight {
-        "background-color: #172033; color: #F8FAFC;"
-    } else if is_psychology {
-        "background-color: #F5EFE6; color: #1C1917;"
-    } else if is_atomic {
-        "background-color: #ECE5D8; color: #1C1917;"
-    } else {
-        "background-color: #F0ECE4; color: #1C1917;"
-    };
-
     rsx! {
         div {
-            class: "book-card group relative flex flex-col cursor-pointer apple-tap",
+            class: "book-card group relative flex flex-col cursor-pointer apple-tap select-none",
             onclick: move |_| on_select.call(book_clone.clone()),
 
-            // Cover Container with Apple-standard realistic depth
+            // Cover Container with Apple-standard realistic 3D depth
             div {
-                class: "book-cover-realistic relative w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-md",
-                style: "{cover_bg} border: 1px solid rgba(0,0,0,0.06);",
+                class: "book-cover-realistic relative w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-md border",
+                style: "border-color: {theme.border_color()}; background-color: {theme.surface_subtle()};",
 
                 if let Some(cover) = &book.cover_image {
                     img {
-                        class: "w-full h-full object-cover select-none pointer-events-none",
+                        class: "w-full h-full object-cover select-none pointer-events-none transition-transform duration-500 group-hover:scale-105",
                         src: "{cover}",
                         alt: "{book.title}",
+                        loading: "lazy",
                     }
                 } else {
-                    // Refined Editorial Typeface Cover (matching reference Book reader.jpg)
                     div {
                         class: "w-full h-full flex flex-col justify-between p-3.5 select-none",
-                        style: "border-left: 3px solid rgba(0,0,0,0.12);",
+                        style: "border-left: 4px solid {theme.accent_color()}; background-color: {theme.surface_color()};",
 
                         div {
-                            class: "font-serif text-[13px] font-bold leading-tight line-clamp-3",
+                            class: "font-serif text-[13px] font-semibold leading-tight line-clamp-3",
+                            style: "color: {theme.text_primary()};",
                             "{book.title}"
                         }
 
                         div {
                             class: "w-6 h-0.5 rounded-full my-auto opacity-30",
-                            style: if is_midnight { "background-color: #FFF;" } else { "background-color: #000;" },
+                            style: "background-color: {theme.text_muted()};",
                         }
 
                         div {
                             class: "font-sans text-[10px] uppercase tracking-wider font-semibold opacity-70 truncate",
+                            style: "color: {theme.text_secondary()};",
                             "{book.author}"
                         }
                     }
@@ -68,8 +56,8 @@ pub fn BookCard(
 
                 // Delete Button on Hover
                 button {
-                    class: "absolute top-2 right-2 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 apple-tap shadow-sm",
-                    style: "width: 24px; height: 24px;",
+                    class: "absolute top-2 right-2 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 apple-tap shadow-sm",
+                    style: "width: 26px; height: 26px; min-width: 26px; min-height: 26px;",
                     title: "Hapus Buku",
                     onclick: move |e| {
                         e.stop_propagation();
@@ -91,11 +79,11 @@ pub fn BookCard(
                 }
             }
 
-            // Book Details below cover (Editorial Style matching reference)
+            // Book Details below cover (Refined Editorial Typography)
             div {
                 class: "mt-2.5 flex flex-col",
                 h3 {
-                    class: "font-serif text-[14px] font-semibold truncate leading-tight",
+                    class: "font-serif text-[14px] font-medium truncate leading-tight transition-colors group-hover:opacity-80",
                     style: "color: {theme.text_primary()};",
                     title: "{book.title}",
                     "{book.title}"
@@ -109,11 +97,11 @@ pub fn BookCard(
                     class: "font-sans text-[11px] font-medium mt-1",
                     style: "color: {theme.text_secondary()};",
                     if progress == 100 {
-                        span { class: "font-semibold text-emerald-600 dark:text-emerald-400", "Finished" }
+                        span { class: "font-semibold text-emerald-600 dark:text-emerald-400", "Selesai" }
                     } else if progress > 0 {
                         span { "{progress}%" }
                     } else {
-                        span { class: "opacity-60", "New" }
+                        span { class: "opacity-60", "Baru" }
                     }
                 }
             }

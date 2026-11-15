@@ -21,15 +21,23 @@ pub fn App() -> Element {
         });
 
         let initial_books = {
-            let existing = db.get_all_books().unwrap_or_default();
+            let mut existing = db.get_all_books().unwrap_or_default();
+            let app_dir = Database::get_app_dir();
+            let starters = crate::engine::ensure_starter_library(&app_dir);
             if existing.is_empty() {
-                let app_dir = Database::get_app_dir();
-                let starters = crate::engine::ensure_starter_library(&app_dir);
                 for b in &starters {
                     let _ = db.insert_or_update_book(b);
                 }
                 starters
             } else {
+                for b in &mut existing {
+                    if b.cover_image.is_none() {
+                        if let Some(starter) = starters.iter().find(|s| s.id == b.id || s.title.to_lowercase() == b.title.to_lowercase()) {
+                            b.cover_image = starter.cover_image.clone();
+                            let _ = db.insert_or_update_book(b);
+                        }
+                    }
+                }
                 existing
             }
         };
