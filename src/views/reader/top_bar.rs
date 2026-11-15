@@ -11,7 +11,9 @@ pub enum ReadingMode {
 pub fn ReaderTopBar(
     theme: ThemeMode,
     reading_mode: ReadingMode,
+    is_bookmarked: bool,
     on_toggle_mode: EventHandler<()>,
+    on_toggle_bookmark: EventHandler<()>,
     on_back: EventHandler<()>,
     on_toggle_search: EventHandler<()>,
     on_toggle_ai: EventHandler<()>,
@@ -36,7 +38,7 @@ pub fn ReaderTopBar(
                 }
             }
 
-            // Top Right Action Cluster: Mode Toggle, Search, AI, Aa, TOC
+            // Top Right Action Cluster: Mode Toggle, Bookmark, Search, AI, Aa, TOC
             div { class: "flex items-center gap-1.5 sm:gap-2",
 
                 // Reading Mode Toggle Button (Scroll vs Paged / Swipe)
@@ -58,6 +60,23 @@ pub fn ReaderTopBar(
                     }
                     span { class: "text-xs font-sans font-medium hidden sm:inline",
                         if is_paged { "Halaman" } else { "Gulir" }
+                    }
+                }
+
+                // Bookmark Toggle Button (🔖)
+                button {
+                    class: "w-9 h-9 rounded-full flex items-center justify-center apple-tap transition-all",
+                    style: if is_bookmarked {
+                        format!("color: {}; background-color: {}20;", theme.accent_color(), theme.accent_color())
+                    } else {
+                        format!("color: {}; opacity: 0.7;", theme.text_primary())
+                    },
+                    title: if is_bookmarked { "Hapus Markah Bab Ini" } else { "Simpan Markah Bab Ini" },
+                    onclick: move |_| on_toggle_bookmark.call(()),
+                    svg { class: "w-4 h-4", view_box: "0 0 24 24",
+                        fill: if is_bookmarked { "currentColor" } else { "none" },
+                        stroke: "currentColor", stroke_width: "2", stroke_linecap: "round", stroke_linejoin: "round",
+                        path { d: "M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" }
                     }
                 }
 
@@ -97,7 +116,7 @@ pub fn ReaderTopBar(
                 button {
                     class: "w-9 h-9 rounded-full flex items-center justify-center apple-tap opacity-70 hover:opacity-100 transition-all",
                     style: "color: {theme.text_primary()};",
-                    title: "Daftar Isi",
+                    title: "Daftar Isi & Markah",
                     onclick: move |_| on_toggle_toc.call(()),
                     svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2",
                         line { x1: "8", y1: "6", x2: "21", y2: "6" }

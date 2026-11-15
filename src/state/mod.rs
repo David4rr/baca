@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use crate::db::models::{Book, UserSettings};
+use crate::db::models::{Book, Bookmark, UserSettings};
 use crate::engine::{ArchiveBook, EpubBook};
 use crate::theme::ThemeMode;
 
@@ -33,6 +33,8 @@ pub struct AppState {
     pub format_modal_book: Signal<Option<ArchiveBook>>,
     pub ai_term: Signal<String>,
     pub inbook_keyword: Signal<Option<String>>,
+    pub bookmarks: Signal<Vec<Bookmark>>,
+    pub delete_confirm_book: Signal<Option<Book>>,
 }
 
 impl AppState {
@@ -55,6 +57,8 @@ impl AppState {
             format_modal_book: Signal::new(None),
             ai_term: Signal::new(String::new()),
             inbook_keyword: Signal::new(None),
+            bookmarks: Signal::new(Vec::new()),
+            delete_confirm_book: Signal::new(None),
         }
     }
 }

@@ -114,12 +114,16 @@ pub fn App() -> Element {
         }
     };
 
+    let (db_sel, state_sel) = (db.clone(), state);
     let (db_del, state_del) = (db.clone(), state);
     let (db_ch, state_ch) = (db.clone(), state);
     let (db_set, state_set) = (db.clone(), state);
     let (db_dl, state_dl) = (db.clone(), state);
     let (db_exp, state_exp) = (db.clone(), state);
     let (db_res, state_res) = (db.clone(), state);
+    let (db_bm, state_bm) = (db.clone(), state);
+    let (db_del_bm, state_del_bm) = (db.clone(), state);
+    let (db_rec, state_rec) = (db.clone(), state);
 
     rsx! {
         style { dangerous_inner_html: include_str!("../../assets/styles/bundle.css") }
@@ -145,7 +149,7 @@ pub fn App() -> Element {
                 show_update_modal: show_update_modal,
                 current_theme: current_theme,
                 settings: settings,
-                on_select_book: move |b| handlers::open_book_reader(state, b),
+                on_select_book: move |b| handlers::open_book_reader(db_sel.clone(), state_sel, b),
                 on_delete_book: move |id| handlers::delete_book_from_shelf(db_del.clone(), state_del, id),
                 on_import: handle_import,
                 on_change_chapter: move |ch| handlers::update_reading_progress(db_ch.clone(), state_ch, ch),
@@ -153,6 +157,23 @@ pub fn App() -> Element {
                 on_select_format: move |(b, fmt)| handlers::download_online_book(db_dl.clone(), state_dl, b, fmt),
                 on_export_backup: move |_| handlers::export_library_backup(db_exp.clone(), state_exp),
                 on_restore_backup: move |json| handlers::restore_library_backup(db_res.clone(), state_res, json),
+                on_toggle_bookmark: move |_| {
+                    if let crate::state::View::Reader { book, epub } = state_bm.current_view.read().clone() {
+                        let ch_idx = *state_bm.current_chapter.read();
+                        let (ch_title, snippet) = epub.as_ref()
+                            .and_then(|e| e.chapters.get(ch_idx))
+                            .map(|c| (c.title.clone(), c.html_content.chars().take(80).collect()))
+                            .unwrap_or_else(|| (format!("Bab {}", ch_idx + 1), String::new()));
+                        handlers::toggle_bookmark(db_bm.clone(), state_bm, book.id, ch_idx, ch_title, snippet);
+                    }
+                },
+                on_delete_bookmark: move |bm_id| handlers::delete_bookmark_by_id(db_del_bm.clone(), state_del_bm, bm_id),
+                on_record_session: move |sec| {
+                    if let crate::state::View::Reader { book, .. } = state_rec.current_view.read().clone() {
+                        handlers::record_reading_time(db_rec.clone(), book.id, sec);
+                    }
+                },
+                on_clear_highlight: move |_| *state.inbook_keyword.write() = None,
             }
         }
     }

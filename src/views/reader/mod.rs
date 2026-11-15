@@ -1,5 +1,7 @@
 pub mod canvas;
+pub mod highlight;
 pub mod pdf_canvas;
+pub mod pdf_script;
 pub mod scrubber;
 pub mod top_bar;
 
@@ -19,15 +21,32 @@ pub fn ReaderView(
     current_chapter: usize,
     theme: ThemeMode,
     settings: UserSettings,
+    is_bookmarked: bool,
+    highlight_keyword: Option<String>,
     on_change_chapter: EventHandler<usize>,
     on_back: EventHandler<()>,
     on_toggle_typography: EventHandler<()>,
     on_toggle_toc: EventHandler<()>,
     on_toggle_search: EventHandler<()>,
     on_toggle_ai: EventHandler<()>,
+    on_toggle_bookmark: EventHandler<()>,
+    on_clear_highlight: EventHandler<()>,
+    on_record_session: EventHandler<u32>,
     on_change_theme: EventHandler<String>,
 ) -> Element {
     let mut reading_mode = use_signal(|| ReadingMode::Scroll);
+    let mut session_start = use_signal(|| chrono::Utc::now().timestamp());
+
+    // Flush session time on back
+    let on_back_click = {
+        let on_rec = on_record_session.clone();
+        let on_b = on_back.clone();
+        move |_| {
+            let elapsed = (chrono::Utc::now().timestamp() - *session_start.read()).max(0) as u32;
+            if elapsed >= 5 { on_rec.call(elapsed); }
+            on_b.call(());
+        }
+    };
 
     // If book is a PDF or EPUB failed to parse, render PDF Canvas
     if book.format.to_lowercase() == "pdf" || epub.is_none() {
@@ -38,7 +57,7 @@ pub fn ReaderView(
                 PdfCanvas {
                     book: book,
                     theme: theme,
-                    on_back: move |_| on_back.call(()),
+                    on_back: on_back_click,
                 }
             }
         };
@@ -77,6 +96,7 @@ pub fn ReaderView(
             ReaderTopBar {
                 theme: theme,
                 reading_mode: cur_mode,
+                is_bookmarked: is_bookmarked,
                 on_toggle_mode: move |_| {
                     if *reading_mode.read() == ReadingMode::Scroll {
                         reading_mode.set(ReadingMode::Paged);
@@ -84,7 +104,8 @@ pub fn ReaderView(
                         reading_mode.set(ReadingMode::Scroll);
                     }
                 },
-                on_back: move |_| on_back.call(()),
+                on_toggle_bookmark: move |_| on_toggle_bookmark.call(()),
+                on_back: on_back_click,
                 on_toggle_search: move |_| on_toggle_search.call(()),
                 on_toggle_ai: move |_| on_toggle_ai.call(()),
                 on_toggle_typography: move |_| on_toggle_typography.call(()),
@@ -101,8 +122,21 @@ pub fn ReaderView(
                 line_height: settings.line_height,
                 theme: theme,
                 reading_mode: cur_mode,
-                on_change_chapter: move |ch| on_change_chapter.call(ch),
+                highlight_keyword: highlight_keyword,
+                on_change_chapter: {
+                    let on_rec = on_record_session.clone();
+                    let on_ch = on_change_chapter.clone();
+                    move |ch| {
+                        let elapsed = (chrono::Utc::now().timestamp() - *session_start.read()).max(0) as u32;
+                        if elapsed >= 5 {
+                            on_rec.call(elapsed);
+                            session_start.set(chrono::Utc::now().timestamp());
+                        }
+                        on_ch.call(ch);
+                    }
+                },
                 on_toggle_ai: move |_| on_toggle_ai.call(()),
+                on_clear_highlight: move |_| on_clear_highlight.call(()),
             }
 
             // 3. Bottom Scrubber & Segmented Theme Dock

@@ -1,5 +1,6 @@
 pub mod ai_modal;
 pub mod book_card;
+pub mod confirm_modal;
 pub mod font_controls;
 pub mod format_modal;
 pub mod inbook_search;
@@ -11,6 +12,7 @@ pub mod update_modal;
 
 pub use ai_modal::AiExplanationModal;
 pub use book_card::BookCard;
+pub use confirm_modal::ConfirmDeleteModal;
 pub use font_controls::FontControls;
 pub use format_modal::FormatModal;
 pub use inbook_search::InBookSearchModal;

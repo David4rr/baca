@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 use crate::engine::Chapter;
 use crate::theme::ThemeMode;
+use super::highlight::highlight_html;
 use super::top_bar::ReadingMode;
 
 #[component]
@@ -13,15 +14,63 @@ pub fn ReaderCanvas(
     line_height: f32,
     theme: ThemeMode,
     reading_mode: ReadingMode,
+    highlight_keyword: Option<String>,
     on_change_chapter: EventHandler<usize>,
     on_toggle_ai: EventHandler<()>,
+    on_clear_highlight: EventHandler<()>,
 ) -> Element {
     let mut touch_start_x = use_signal(|| 0.0f64);
     let mut touch_start_y = use_signal(|| 0.0f64);
     let mut touch_last_x = use_signal(|| 0.0f64);
     let mut touch_last_y = use_signal(|| 0.0f64);
+    let mut current_page = use_signal(|| 0usize);
+
+    let mut last_ch = use_signal(|| current_chapter);
+    if *last_ch.read() != current_chapter {
+        *last_ch.write() = current_chapter;
+        current_page.set(0);
+    }
 
     let is_paged = reading_mode == ReadingMode::Paged;
+    let est_pages = current_ch.as_ref().map(|c| {
+        let wc = c.html_content.split_whitespace().count();
+        ((wc as f32 / 240.0).ceil() as usize).max(1)
+    }).unwrap_or(1);
+
+    let mut go_next = {
+        let on_change = on_change_chapter.clone();
+        move || {
+            let p = *current_page.read();
+            if p + 1 < est_pages {
+                current_page.set(p + 1);
+            } else if current_chapter + 1 < total_chapters {
+                current_page.set(0);
+                on_change.call(current_chapter + 1);
+            }
+        }
+    };
+
+    let mut go_prev = {
+        let on_change = on_change_chapter.clone();
+        move || {
+            let p = *current_page.read();
+            if p > 0 {
+                current_page.set(p - 1);
+            } else if current_chapter > 0 {
+                current_page.set(0);
+                on_change.call(current_chapter - 1);
+            }
+        }
+    };
+
+    let rendered_html = current_ch.as_ref().map(|ch| {
+        if let Some(kw) = &highlight_keyword {
+            let clean = kw.trim();
+            if clean.len() >= 2 { highlight_html(&ch.html_content, clean) } else { ch.html_content.clone() }
+        } else {
+            ch.html_content.clone()
+        }
+    }).unwrap_or_default();
 
     rsx! {
         main {
@@ -30,16 +79,13 @@ pub fn ReaderCanvas(
             ontouchstart: move |e: TouchEvent| {
                 if let Some(t) = e.touches().first() {
                     let (x, y) = (t.client_coordinates().x, t.client_coordinates().y);
-                    touch_start_x.set(x);
-                    touch_start_y.set(y);
-                    touch_last_x.set(x);
-                    touch_last_y.set(y);
+                    touch_start_x.set(x); touch_start_y.set(y);
+                    touch_last_x.set(x); touch_last_y.set(y);
                 }
             },
             ontouchmove: move |e: TouchEvent| {
                 if let Some(t) = e.touches().first() {
-                    touch_last_x.set(t.client_coordinates().x);
-                    touch_last_y.set(t.client_coordinates().y);
+                    touch_last_x.set(t.client_coordinates().x); touch_last_y.set(t.client_coordinates().y);
                 }
             },
             ontouchend: move |_| {
@@ -47,40 +93,27 @@ pub fn ReaderCanvas(
                     let dx = *touch_last_x.read() - *touch_start_x.read();
                     let dy = *touch_last_y.read() - *touch_start_y.read();
                     if dy.abs() < 120.0 {
-                        if dx < -45.0 && current_chapter + 1 < total_chapters {
-                            on_change_chapter.call(current_chapter + 1);
-                        } else if dx > 45.0 && current_chapter > 0 {
-                            on_change_chapter.call(current_chapter - 1);
-                        }
+                        if dx < -45.0 { go_next(); } else if dx > 45.0 { go_prev(); }
                     }
                 }
             },
 
-            // Floating Navigation Arrows (Paged / Swipe Mode)
+            // Floating Navigation Arrows (Paged Mode)
             if is_paged {
-                // Floating Left Arrow
-                if current_chapter > 0 {
+                if *current_page.read() > 0 || current_chapter > 0 {
                     button {
                         class: "fixed left-2 sm:left-6 top-1/2 -translate-y-1/2 z-20 w-10 sm:w-12 h-10 sm:h-12 rounded-full border shadow-lg backdrop-blur-md flex items-center justify-center apple-tap transition-all hover:scale-110",
                         style: "background-color: {theme.surface_color()}CC; border-color: {theme.border_color()}; color: {theme.text_primary()};",
-                        title: "Halaman / Bab Sebelumnya (Geser Kanan)",
-                        onclick: move |_| on_change_chapter.call(current_chapter - 1),
-                        svg { class: "w-5 h-5", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5", stroke_linecap: "round", stroke_linejoin: "round",
-                            polyline { points: "15 18 9 12 15 6" }
-                        }
+                        title: "Halaman Sebelumnya", onclick: move |_| go_prev(),
+                        svg { class: "w-5 h-5", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5", polyline { points: "15 18 9 12 15 6" } }
                     }
                 }
-
-                // Floating Right Arrow
-                if current_chapter + 1 < total_chapters {
+                if *current_page.read() + 1 < est_pages || current_chapter + 1 < total_chapters {
                     button {
                         class: "fixed right-2 sm:right-6 top-1/2 -translate-y-1/2 z-20 w-10 sm:w-12 h-10 sm:h-12 rounded-full border shadow-lg backdrop-blur-md flex items-center justify-center apple-tap transition-all hover:scale-110",
                         style: "background-color: {theme.surface_color()}CC; border-color: {theme.border_color()}; color: {theme.text_primary()};",
-                        title: "Halaman / Bab Selanjutnya (Geser Kiri)",
-                        onclick: move |_| on_change_chapter.call(current_chapter + 1),
-                        svg { class: "w-5 h-5", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5", stroke_linecap: "round", stroke_linejoin: "round",
-                            polyline { points: "9 18 15 12 9 6" }
-                        }
+                        title: "Halaman Selanjutnya", onclick: move |_| go_next(),
+                        svg { class: "w-5 h-5", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5", polyline { points: "9 18 15 12 9 6" } }
                     }
                 }
             }
@@ -88,33 +121,38 @@ pub fn ReaderCanvas(
             if let Some(ch) = current_ch {
                 div {
                     class: "chapter-content space-y-6 select-text",
-
-                    // Chapter Eyebrow ("CHAPTER 5")
-                    div {
-                        class: "text-center mb-2 select-none",
-                        span {
-                            class: "font-sans text-[11px] uppercase tracking-[0.25em] font-semibold opacity-60",
-                            style: "color: {theme.text_secondary()};",
+                    div { class: "text-center mb-2 select-none",
+                        span { class: "font-sans text-[11px] uppercase tracking-[0.25em] font-semibold opacity-60", style: "color: {theme.text_secondary()};",
                             "BAB {current_chapter + 1} DARI {total_chapters}"
                         }
                     }
-
-                    // Chapter Headline
-                    h1 {
-                        class: "font-serif text-[28px] sm:text-[34px] font-normal tracking-tight text-center mb-8 leading-[1.2]",
-                        style: "color: {theme.text_primary()};",
+                    h1 { class: "font-serif text-[28px] sm:text-[34px] font-normal tracking-tight text-center mb-8 leading-[1.2]", style: "color: {theme.text_primary()};",
                         "{ch.title}"
                     }
 
-                    // Chapter Body Text (Sanitized HTML with Embedded Base64 Images)
-                    div {
-                        class: "prose max-w-none leading-relaxed text-justify",
-                        dangerous_inner_html: "{ch.html_content}",
+                    if is_paged {
+                        div { class: "paged-container relative w-full overflow-hidden rounded-2xl", style: "height: calc(100vh - 14rem); max-height: calc(100vh - 14rem);",
+                            div {
+                                class: "prose max-w-none leading-relaxed text-justify transition-transform duration-300 ease-out",
+                                style: "column-width: 100%; column-gap: 3rem; column-fill: auto; height: 100%; transform: translateX(calc(-{current_page} * (100% + 3rem)));",
+                                dangerous_inner_html: "{rendered_html}",
+                            }
+                        }
+                    } else {
+                        div { class: "prose max-w-none leading-relaxed text-justify", dangerous_inner_html: "{rendered_html}" }
                     }
 
-                    // Floating Highlight Action Pill ("✨ Tanya AI")
-                    div {
-                        class: "flex justify-end pt-4 pb-2 select-none",
+                    div { class: "flex items-center justify-between pt-4 pb-2 select-none",
+                        if let Some(kw) = &highlight_keyword {
+                            button {
+                                class: "rounded-full px-3 py-1 text-xs font-sans font-medium flex items-center gap-1.5 border apple-tap shadow-xs",
+                                style: "background-color: #fef3c7; border-color: #f59e0b; color: #78350f;",
+                                onclick: move |_| on_clear_highlight.call(()),
+                                span { "Menyorot: \"{kw}\"" }
+                                span { class: "font-bold", "✕" }
+                            }
+                        } else { div {} }
+
                         button {
                             class: "rounded-full px-4 py-1.5 text-xs font-sans font-medium flex items-center gap-1.5 shadow-sm border apple-tap transition-all",
                             style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_secondary()};",
@@ -130,17 +168,12 @@ pub fn ReaderCanvas(
                 div { class: "p-12 text-center opacity-60 font-sans text-sm", "Bab buku tidak dapat dimuat." }
             }
 
-            // Navigation Controls
             if is_paged {
-                div {
-                    class: "mt-12 text-center select-none opacity-50 font-sans text-[11px] tracking-wide",
-                    "← Geser layar ke kiri/kanan atau ketuk tombol panah untuk membalik halaman →"
+                div { class: "mt-4 text-center select-none font-sans text-xs opacity-60 tracking-wide",
+                    "Halaman {current_page + 1} dari {est_pages} • Geser ke kiri/kanan untuk membalik"
                 }
             } else {
-                div {
-                    class: "mt-16 pt-8 border-t flex items-center justify-between select-none",
-                    style: "border-color: {theme.border_color()};",
-
+                div { class: "mt-16 pt-8 border-t flex items-center justify-between select-none", style: "border-color: {theme.border_color()};",
                     button {
                         class: "px-4 py-2 rounded-xl border text-xs font-sans font-medium apple-tap transition-all disabled:opacity-20 disabled:pointer-events-none",
                         style: "border-color: {theme.border_color()}; background-color: {theme.surface_color()}; color: {theme.text_primary()};",
@@ -148,7 +181,6 @@ pub fn ReaderCanvas(
                         onclick: move |_| { if current_chapter > 0 { on_change_chapter.call(current_chapter - 1); } },
                         "← Bab Sebelumnya"
                     }
-
                     button {
                         class: "px-4 py-2 rounded-xl border text-xs font-sans font-medium apple-tap transition-all disabled:opacity-20 disabled:pointer-events-none",
                         style: "border-color: {theme.border_color()}; background-color: {theme.surface_color()}; color: {theme.text_primary()};",

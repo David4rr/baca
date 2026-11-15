@@ -42,6 +42,11 @@ fn test_app_state_navigation_and_modals() {
         // Format chooser modal state
         assert!(state.format_modal_book.read().is_none());
 
+        // Bookmarks, in-book keyword, and delete confirm state
+        assert_eq!(state.bookmarks.read().len(), 0);
+        assert!(state.inbook_keyword.read().is_none());
+        assert!(state.delete_confirm_book.read().is_none());
+
         rsx! {}
     });
     dom.rebuild_in_place();
