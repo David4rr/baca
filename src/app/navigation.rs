@@ -3,6 +3,16 @@ use dioxus::prelude::*;
 
 pub const BACK_SCRIPT: &str = r#"
     (function() {
+        try {
+            var meta = document.querySelector('meta[name="viewport"]');
+            if (!meta) {
+                meta = document.createElement('meta');
+                meta.name = 'viewport';
+                document.head.appendChild(meta);
+            }
+            meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no';
+        } catch(e) {}
+
         if (window.__baca_back_inited) return;
         window.__baca_back_inited = true;
         try {

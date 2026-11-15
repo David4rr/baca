@@ -34,9 +34,9 @@ pub fn ExploreHeader(
 
             // 1. Symmetrical Top Bar
             div {
-                class: "flex items-center justify-between gap-4 mb-6",
+                class: "flex items-center justify-between gap-3 mb-5 w-full min-w-0",
                 div {
-                    class: "flex items-center gap-3",
+                    class: "flex items-center gap-3 min-w-0 flex-1",
                     button {
                         class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all flex-shrink-0",
                         style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
@@ -56,13 +56,14 @@ pub fn ExploreHeader(
                         }
                     }
                     div {
+                        class: "flex flex-col min-w-0 flex-1",
                         h1 {
-                            class: "font-serif text-[26px] sm:text-[32px] font-medium tracking-tight leading-tight",
+                            class: "font-serif text-[24px] sm:text-[32px] font-medium tracking-tight leading-tight truncate",
                             style: "color: {theme.text_primary()};",
                             "Cari Buku Online"
                         }
                         p {
-                            class: "font-sans text-xs opacity-60 mt-0.5",
+                            class: "font-sans text-xs opacity-60 mt-0.5 truncate",
                             style: "color: {theme.text_secondary()};",
                             "Katalog publik Project Gutenberg & Internet Archive"
                         }
@@ -72,9 +73,9 @@ pub fn ExploreHeader(
 
             // 2. Search Input with Real Space Support & Debounce
             div {
-                class: "relative w-full",
+                class: "relative w-full min-w-0",
                 input {
-                    class: "w-full pl-11 pr-10 py-3 rounded-2xl border text-sm outline-none transition-all duration-200 focus:ring-2",
+                    class: "w-full min-w-0 pl-11 pr-10 py-3 rounded-2xl border text-sm outline-none transition-all duration-200 focus:ring-2 box-border",
                     style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
                     placeholder: "Ketik judul buku atau nama pengarang...",
                     value: "{local_text}",
@@ -96,7 +97,7 @@ pub fn ExploreHeader(
                 }
                 if !local_text.read().is_empty() {
                     button {
-                        class: "absolute right-3.5 top-1/2 -translate-y-1/2 opacity-40 hover:opacity-100 p-1 text-xs transition-opacity",
+                        class: "absolute right-3.5 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100 p-1.5 text-xs transition-opacity flex items-center justify-center rounded-full",
                         style: "color: {theme.text_secondary()};",
                         onclick: {
                             let on_search = on_search.clone();

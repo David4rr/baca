@@ -37,7 +37,7 @@ pub fn RecentGrid(
                     }
 
                     div {
-                        class: "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 sm:gap-5",
+                        class: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5 sm:gap-4 md:gap-5",
                         for b in recent_books {
                             BookCard {
                                 key: "{b.id}",

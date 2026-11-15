@@ -83,7 +83,7 @@ pub fn MorphingDownloadButton(
                     // True Apple Floating Dropdown Menu
                     if *is_dropdown_open.read() {
                         div {
-                            class: "absolute right-0 top-full mt-2 z-40 w-64 rounded-2xl p-2.5 shadow-2xl border backdrop-blur-xl animate-spring-pop flex flex-col gap-1.5",
+                            class: "absolute right-0 top-full mt-2 z-40 w-64 max-w-[calc(100vw-2.5rem)] rounded-2xl p-2.5 shadow-2xl border backdrop-blur-xl animate-spring-pop flex flex-col gap-1.5",
                             style: "background-color: {theme.surface_color()}EE; border-color: {theme.border_color()};",
                             onclick: |e| e.stop_propagation(),
 

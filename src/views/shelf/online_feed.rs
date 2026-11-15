@@ -39,16 +39,16 @@ pub fn OnlineFeed(
 
             // Section Header
             div {
-                class: "flex flex-col sm:flex-row sm:items-end justify-between gap-3 select-none w-full",
+                class: "flex flex-col sm:flex-row sm:items-end justify-between gap-3 select-none w-full min-w-0",
                 div {
-                    class: "flex flex-col",
+                    class: "flex flex-col min-w-0 flex-1",
                     h2 {
-                        class: "font-serif text-2xl font-medium tracking-tight",
+                        class: "font-serif text-2xl font-medium tracking-tight truncate",
                         style: "color: {theme.text_primary()};",
                         "Jelajahi Literatur Online"
                     }
                     p {
-                        class: "font-sans text-xs opacity-60 mt-0.5",
+                        class: "font-sans text-xs opacity-60 mt-0.5 truncate",
                         style: "color: {theme.text_secondary()};",
                         "Koleksi domain publik dari Project Gutenberg & Internet Archive"
                     }
@@ -56,7 +56,7 @@ pub fn OnlineFeed(
 
                 // Category Chips
                 div {
-                    class: "flex items-center gap-1.5 overflow-x-auto pb-1 select-none",
+                    class: "flex items-center gap-1.5 overflow-x-auto pb-1 select-none max-w-full min-w-0",
                     for (label, query) in categories {
                         {
                             let q_str = query.to_string();

@@ -23,7 +23,7 @@ fn main() {
             .with_min_inner_size(dioxus::desktop::tao::dpi::LogicalSize::new(760.0, 540.0));
 
         let custom_head = r#"
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
             <link rel="stylesheet" href="assets/styles/main.css">
             <script src="https://cdn.tailwindcss.com"></script>
         "#.to_string();

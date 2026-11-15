@@ -54,42 +54,33 @@ pub fn ShelfView(
 
     rsx! {
         div {
-            class: "shelf-view flex-1 flex flex-col w-full max-w-4xl mx-auto px-4 sm:px-6 md:px-8 pt-8 pb-32 transition-colors duration-300 animate-fade-in",
+            class: "shelf-view flex-1 flex flex-col w-full max-w-4xl mx-auto px-4 sm:px-6 md:px-8 pt-[calc(env(safe-area-inset-top,0px)+3.25rem)] pb-32 transition-colors duration-300 animate-fade-in",
 
             // 1. Editorial Header
             div {
-                class: "flex items-start justify-between mb-8 select-none",
+                class: "flex items-start justify-between gap-3 mb-8 select-none w-full min-w-0",
                 div {
-                    class: "flex flex-col",
+                    class: "flex flex-col min-w-0 flex-1 mr-2",
                     h1 {
-                        class: "font-serif text-[34px] sm:text-[40px] font-medium tracking-tight leading-none",
+                        class: "font-serif text-[28px] sm:text-[40px] font-medium tracking-tight leading-none truncate",
                         style: "color: {theme.text_primary()};",
                         "Perpustakaan Saya"
                     }
                     p {
-                        class: "font-sans text-[13px] sm:text-[14px] mt-2 font-normal tracking-normal opacity-70",
+                        class: "font-sans text-xs sm:text-[14px] mt-2 font-normal tracking-normal opacity-70 truncate",
                         style: "color: {theme.text_secondary()};",
                         "Koleksi buku offline dan temuan literatur baru"
                     }
                 }
 
                 div {
-                    class: "flex items-center gap-2.5",
+                    class: "flex items-center gap-2 flex-shrink-0",
                     button {
                         class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all",
                         style: "width: 40px; height: 40px; min-width: 40px; min-height: 40px; background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
                         title: "Tambah Buku Lokal (EPUB / PDF)",
                         onclick: move |_| on_import.call(()),
-                        svg {
-                            class: "w-4 h-4",
-                            width: "16",
-                            height: "16",
-                            view_box: "0 0 24 24",
-                            fill: "none",
-                            stroke: "currentColor",
-                            stroke_width: "2.2",
-                            stroke_linecap: "round",
-                            stroke_linejoin: "round",
+                        svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.2", stroke_linecap: "round", stroke_linejoin: "round",
                             line { x1: "12", y1: "5", x2: "12", y2: "19" }
                             line { x1: "5", y1: "12", x2: "19", y2: "12" }
                         }
@@ -102,16 +93,7 @@ pub fn ShelfView(
                             let cur = *is_search_visible.read();
                             is_search_visible.set(!cur);
                         },
-                        svg {
-                            class: "w-4 h-4",
-                            width: "16",
-                            height: "16",
-                            view_box: "0 0 24 24",
-                            fill: "none",
-                            stroke: "currentColor",
-                            stroke_width: "2.2",
-                            stroke_linecap: "round",
-                            stroke_linejoin: "round",
+                        svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.2", stroke_linecap: "round", stroke_linejoin: "round",
                             circle { cx: "11", cy: "11", r: "8" }
                             line { x1: "21", y1: "21", x2: "16.65", y2: "16.65" }
                         }
@@ -122,29 +104,32 @@ pub fn ShelfView(
             // Search Bar with Symmetrical Spacing
             if *is_search_visible.read() || !search_query.is_empty() {
                 div {
-                    class: "mb-6 animate-slide-up w-full",
+                    class: "mb-6 animate-slide-up w-full min-w-0",
                     div {
-                        class: "relative w-full",
+                        class: "relative w-full min-w-0",
                         input {
-                            class: "w-full pl-11 pr-4 py-3 rounded-2xl border text-sm outline-none transition-all duration-200 focus:ring-2",
+                            class: "w-full min-w-0 pl-11 pr-10 py-3 rounded-2xl border text-sm outline-none transition-all duration-200 focus:ring-2 box-border",
                             style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
                             placeholder: "Cari judul buku atau pengarang...",
                             value: "{search_query}",
                             autofocus: true,
                             oninput: move |e| on_search.call(e.value()),
                         }
-                        div {
-                            class: "absolute left-4 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none",
-                            svg {
-                                class: "w-4 h-4",
-                                width: "16",
-                                height: "16",
-                                view_box: "0 0 24 24",
-                                fill: "none",
-                                stroke: "currentColor",
-                                stroke_width: "2",
+                        div { class: "absolute left-4 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none",
+                            svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2",
                                 circle { cx: "11", cy: "11", r: "8" }
                                 line { x1: "21", y1: "21", x2: "16.65", y2: "16.65" }
+                            }
+                        }
+                        if !search_query.is_empty() {
+                            button {
+                                class: "absolute right-3.5 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100 p-1.5 text-xs transition-opacity flex items-center justify-center rounded-full",
+                                style: "color: {theme.text_secondary()};",
+                                onclick: {
+                                    let on_search = on_search.clone();
+                                    move |_| on_search.call(String::new())
+                                },
+                                "✕"
                             }
                         }
                     }

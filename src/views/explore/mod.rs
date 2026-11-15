@@ -60,7 +60,7 @@ pub fn ExploreView(
 
     rsx! {
         div {
-            class: "explore-view flex-1 flex flex-col w-full max-w-4xl mx-auto px-4 sm:px-6 md:px-8 pt-8 pb-32 animate-fade-in transition-colors duration-300",
+            class: "explore-view flex-1 flex flex-col w-full max-w-4xl mx-auto px-4 sm:px-6 md:px-8 pt-[calc(env(safe-area-inset-top,0px)+3.25rem)] pb-32 animate-fade-in transition-colors duration-300 min-w-0",
 
             // 1. Symmetrical Header
             ExploreHeader {
@@ -72,7 +72,7 @@ pub fn ExploreView(
 
             // 2. Symmetrical Category Pills
             div {
-                class: "flex items-center gap-2 overflow-x-auto pb-4 mb-6 select-none w-full",
+                class: "flex items-center gap-2 overflow-x-auto pb-4 mb-6 select-none w-full min-w-0 max-w-full",
                 for (name, q) in categories {
                     {
                         let q_str = q.to_string();

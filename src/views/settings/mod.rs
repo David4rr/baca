@@ -28,7 +28,7 @@ pub fn SettingsView(
 
     rsx! {
         div {
-            class: "settings-view flex-1 flex flex-col w-full max-w-4xl mx-auto px-5 sm:px-8 pt-8 pb-32 animate-fade-in transition-colors duration-300",
+            class: "settings-view flex-1 flex flex-col w-full max-w-4xl mx-auto px-5 sm:px-8 pt-[calc(env(safe-area-inset-top,0px)+3.25rem)] pb-32 animate-fade-in transition-colors duration-300 min-w-0",
 
             // Top Header with Back Button
             div {
