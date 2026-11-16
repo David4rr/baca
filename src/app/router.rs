@@ -4,7 +4,7 @@ use crate::db::models::{Book, DailyReadingStats, UserSettings};
 use crate::engine::updater::ReleaseInfo;
 use crate::state::{AppState, View};
 use crate::theme::ThemeMode;
-use crate::views::{ExploreView, ReaderView, SettingsView, ShelfView, StatsView};
+use crate::views::{BookDetailView, ExploreView, ReaderView, SettingsView, ShelfView, StatsView};
 
 #[component]
 pub fn AppRouter(
@@ -19,7 +19,6 @@ pub fn AppRouter(
     on_import: EventHandler<()>,
     on_change_chapter: EventHandler<usize>,
     on_change_settings: EventHandler<UserSettings>,
-    on_select_format: EventHandler<(crate::engine::archive::ArchiveBook, String)>,
     on_export_backup: EventHandler<()>,
     on_restore_backup: EventHandler<String>,
     on_toggle_bookmark: EventHandler<()>,
@@ -36,7 +35,6 @@ pub fn AppRouter(
                     books: state.books.read().clone(),
                     theme: current_theme,
                     search_query: state.search_query.read().clone(),
-                    downloaded_ids: state.books.read().iter().map(|b| b.id.clone()).collect(),
                     has_update: available_update.read().is_some(),
                     on_search: move |q| *state.search_query.write() = q,
                     on_select_book: move |b| on_select_book.call(b),
@@ -47,6 +45,7 @@ pub fn AppRouter(
                     },
                     on_import: move |_| on_import.call(()),
                     on_import_book: move |b: Book| state.books.write().insert(0, b),
+                    on_select_detail: move |b| *state.current_view.write() = View::BookDetail { book: b },
                     on_explore: move |_| *state.current_view.write() = View::Explore,
                     on_stats: move |_| *state.current_view.write() = View::Stats,
                     on_settings: move |_| *state.current_view.write() = View::Settings,
@@ -55,9 +54,20 @@ pub fn AppRouter(
             View::Explore => rsx! {
                 ExploreView {
                     theme: current_theme,
-                    downloaded_ids: state.books.read().iter().map(|b| b.id.clone()).collect(),
+                    library_books: state.books.read().clone(),
                     on_import_book: move |b: Book| state.books.write().insert(0, b),
+                    on_select_detail: move |b| *state.current_view.write() = View::BookDetail { book: b },
                     on_back: move |_| *state.current_view.write() = View::Shelf,
+                }
+            },
+            View::BookDetail { book } => rsx! {
+                BookDetailView {
+                    book: book.clone(),
+                    library_books: state.books.read().clone(),
+                    theme: current_theme,
+                    on_import_book: move |b: Book| state.books.write().insert(0, b),
+                    on_open_book: move |b| on_select_book.call(b),
+                    on_back: move |_| *state.current_view.write() = View::Explore,
                 }
             },
             View::Stats => rsx! {
@@ -152,12 +162,6 @@ pub fn AppRouter(
             },
         }
 
-        FormatModal {
-            book: state.format_modal_book.read().clone(),
-            theme: current_theme,
-            on_select_format: move |pair| on_select_format.call(pair),
-            on_close: move |_| *state.format_modal_book.write() = None,
-        }
 
         if let Some(book_to_delete) = state.delete_confirm_book.read().clone() {
             ConfirmDeleteModal {

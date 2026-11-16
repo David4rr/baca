@@ -194,7 +194,7 @@ where
             total_chapters: 1,
             current_chapter: 0,
             progress_percent: 0.0,
-            last_read_at: now,
+            last_read_at: 0,
             created_at: now,
         }
     } else if let Ok(parsed) = crate::engine::parse_epub(&dest_path) {
@@ -208,7 +208,7 @@ where
             total_chapters: parsed.chapters.len(),
             current_chapter: 0,
             progress_percent: 0.0,
-            last_read_at: now,
+            last_read_at: 0,
             created_at: now,
         }
     } else {
@@ -222,7 +222,7 @@ where
             total_chapters: 1,
             current_chapter: 0,
             progress_percent: 0.0,
-            last_read_at: now,
+            last_read_at: 0,
             created_at: now,
         }
     };

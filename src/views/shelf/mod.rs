@@ -18,7 +18,6 @@ pub fn ShelfView(
     books: Vec<Book>,
     theme: ThemeMode,
     search_query: String,
-    downloaded_ids: Vec<String>,
     #[props(default = false)]
     has_update: bool,
     on_search: EventHandler<String>,
@@ -26,6 +25,7 @@ pub fn ShelfView(
     on_delete_book: EventHandler<String>,
     on_import: EventHandler<()>,
     on_import_book: EventHandler<Book>,
+    on_select_detail: EventHandler<crate::engine::ArchiveBook>,
     on_explore: EventHandler<()>,
     on_stats: EventHandler<()>,
     on_settings: EventHandler<()>,
@@ -45,11 +45,11 @@ pub fn ShelfView(
         .cloned()
         .collect();
 
-    let featured_book = filtered_books.first().cloned();
-    let recent_books: Vec<Book> = if filtered_books.len() > 1 {
-        filtered_books.iter().skip(1).take(6).cloned().collect()
+    let featured_book = filtered_books.iter().find(|b| b.last_read_at > 0).cloned();
+    let recent_books: Vec<Book> = if let Some(ref fb) = featured_book {
+        filtered_books.iter().filter(|b| b.id != fb.id).cloned().collect()
     } else {
-        vec![]
+        filtered_books.clone()
     };
 
     rsx! {
@@ -167,8 +167,9 @@ pub fn ShelfView(
             // 3. Online Books Discovery Stream (Bottom of Home Screen)
             OnlineFeed {
                 theme: theme,
-                downloaded_ids: downloaded_ids,
+                library_books: books.clone(),
                 on_imported_book: move |b| on_import_book.call(b),
+                on_select_detail: move |b| on_select_detail.call(b),
             }
 
             // 4. Floating Apple Island Dock

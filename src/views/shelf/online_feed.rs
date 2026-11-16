@@ -7,8 +7,9 @@ use crate::theme::ThemeMode;
 #[component]
 pub fn OnlineFeed(
     theme: ThemeMode,
-    downloaded_ids: Vec<String>,
+    library_books: Vec<Book>,
     on_imported_book: EventHandler<Book>,
+    on_select_detail: EventHandler<ArchiveBook>,
 ) -> Element {
     let mut selected_category = use_signal(|| "classics".to_string());
     let mut online_books = use_signal(Vec::<ArchiveBook>::new);
@@ -98,18 +99,30 @@ pub fn OnlineFeed(
                     for book in online_books.read().iter().take(6) {
                         {
                             let id = book.identifier.clone();
-                            let is_done = downloaded_ids.contains(&id);
+                            let clean_id = id.replace(|c: char| !c.is_alphanumeric(), "_");
+                            let is_done = library_books.iter().any(|b| {
+                                b.title.trim().eq_ignore_ascii_case(book.title.trim())
+                                    || (!clean_id.is_empty() && b.file_path.contains(&clean_id))
+                                    || b.id == id
+                            });
                             let on_imp = on_imported_book.clone();
+                            let on_det = on_select_detail.clone();
+                            let book_click = book.clone();
+                            let desc_snippet = book.description.as_deref().unwrap_or("Koleksi Project Gutenberg & Internet Archive");
                             rsx! {
                                 div {
                                     key: "{id}",
                                     class: "p-4 rounded-3xl border flex gap-3.5 items-center shadow-sm hover:shadow-md transition-all justify-between",
                                     style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()};",
 
-                                    // Cover Thumbnail with Depth
+                                    // Cover Thumbnail with Depth (Clickable)
                                     div {
-                                        class: "book-cover-realistic w-14 h-20 rounded-xl overflow-hidden flex-shrink-0 shadow-sm border",
+                                        class: "book-cover-realistic w-14 h-20 rounded-xl overflow-hidden flex-shrink-0 shadow-sm border cursor-pointer apple-tap hover:opacity-90",
                                         style: "border-color: {theme.border_color()}; background-color: {theme.surface_subtle()};",
+                                        onclick: {
+                                            let b = book_click.clone();
+                                            move |_| on_det.call(b.clone())
+                                        },
                                         img {
                                             class: "w-full h-full object-cover",
                                             src: "{book.thumbnail_url()}",
@@ -122,9 +135,13 @@ pub fn OnlineFeed(
                                     div {
                                         class: "flex flex-col flex-1 min-w-0 justify-between h-20 py-0.5",
                                         div {
-                                            class: "flex flex-col",
+                                            class: "flex flex-col cursor-pointer apple-tap hover:opacity-90",
+                                            onclick: {
+                                                let b = book_click.clone();
+                                                move |_| on_det.call(b.clone())
+                                            },
                                             h4 {
-                                                class: "font-serif text-sm font-semibold leading-tight line-clamp-2",
+                                                class: "font-serif text-sm font-semibold leading-tight line-clamp-1",
                                                 style: "color: {theme.text_primary()};",
                                                 "{book.title}"
                                             }
@@ -132,6 +149,11 @@ pub fn OnlineFeed(
                                                 class: "text-[11px] font-sans opacity-60 truncate mt-0.5",
                                                 style: "color: {theme.text_secondary()};",
                                                 "{book.author_display()}"
+                                            }
+                                            span {
+                                                class: "text-[10px] font-sans opacity-45 line-clamp-1 mt-0.5",
+                                                style: "color: {theme.text_secondary()};",
+                                                "{desc_snippet}"
                                             }
                                         }
 

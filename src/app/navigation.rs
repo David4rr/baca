@@ -56,9 +56,16 @@ pub fn handle_device_back(
     }
 
     let view = state.current_view.read().clone();
-    if view != View::Shelf {
-        *state.current_view.write() = View::Shelf;
-        return;
+    match view {
+        View::BookDetail { .. } => {
+            *state.current_view.write() = View::Explore;
+            return;
+        }
+        v if v != View::Shelf => {
+            *state.current_view.write() = View::Shelf;
+            return;
+        }
+        _ => {}
     }
 
     let now = chrono::Utc::now().timestamp_millis();

@@ -11,6 +11,7 @@ pub fn BookCard(
 ) -> Element {
     let book_clone = book.clone();
     let book_id = book.id.clone();
+    let mut show_menu = use_signal(|| false);
     let progress = (book.progress_percent * 100.0).round() as u32;
     let is_pdf = book.format.to_lowercase() == "pdf";
 
@@ -74,18 +75,51 @@ pub fn BookCard(
                     }
                 }
 
-                // Delete Button on Hover
+                // 3-Dots Options Menu Button
                 button {
                     class: "absolute top-2.5 right-2.5 z-10 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 apple-tap shadow-md backdrop-blur-sm",
                     style: "width: 28px; height: 28px; min-width: 28px; min-height: 28px;",
-                    title: "Hapus Buku",
-                    onclick: move |e| {
+                    title: "Opsi Buku",
+                    onclick: move |e: MouseEvent| {
                         e.stop_propagation();
-                        on_delete.call(book_id.clone());
+                        show_menu.toggle();
                     },
-                    svg { class: "w-3 h-3", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5", stroke_linecap: "round", stroke_linejoin: "round",
-                        line { x1: "18", y1: "6", x2: "6", y2: "18" }
-                        line { x1: "6", y1: "6", x2: "18", y2: "18" }
+                    svg { class: "w-3.5 h-3.5", view_box: "0 0 24 24", fill: "currentColor",
+                        circle { cx: "5", cy: "12", r: "2" }
+                        circle { cx: "12", cy: "12", r: "2" }
+                        circle { cx: "19", cy: "12", r: "2" }
+                    }
+                }
+
+                if *show_menu.read() {
+                    div {
+                        class: "absolute top-10 right-2 z-30 p-1.5 rounded-2xl shadow-xl border flex flex-col gap-1 min-w-[150px] backdrop-blur-xl animate-fade-in",
+                        style: "background-color: {theme.surface_color()}F5; border-color: {theme.border_color()};",
+                        button {
+                            class: "flex items-center gap-2 px-3 py-1.5 text-xs font-sans font-medium rounded-xl apple-tap hover:bg-black/5 dark:hover:bg-white/5 text-left",
+                            style: "color: {theme.text_primary()};",
+                            onclick: {
+                                let b = book_clone.clone();
+                                move |e: MouseEvent| {
+                                    e.stop_propagation();
+                                    show_menu.set(false);
+                                    on_select.call(b.clone());
+                                }
+                            },
+                            "📖 Baca Buku"
+                        }
+                        button {
+                            class: "flex items-center gap-2 px-3 py-1.5 text-xs font-sans font-medium rounded-xl text-rose-500 apple-tap hover:bg-rose-500/10 text-left",
+                            onclick: {
+                                let id = book_id.clone();
+                                move |e: MouseEvent| {
+                                    e.stop_propagation();
+                                    show_menu.set(false);
+                                    on_delete.call(id.clone());
+                                }
+                            },
+                            "🗑️ Hapus"
+                        }
                     }
                 }
 

@@ -13,6 +13,9 @@ pub enum View {
         book: Book,
         epub: Option<EpubBook>,
     },
+    BookDetail {
+        book: ArchiveBook,
+    },
 }
 
 #[derive(Clone, Copy, PartialEq)]

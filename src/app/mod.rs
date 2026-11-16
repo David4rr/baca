@@ -118,7 +118,6 @@ pub fn App() -> Element {
     let (db_del, state_del) = (db.clone(), state);
     let (db_ch, state_ch) = (db.clone(), state);
     let (db_set, state_set) = (db.clone(), state);
-    let (db_dl, state_dl) = (db.clone(), state);
     let (db_exp, state_exp) = (db.clone(), state);
     let (db_res, state_res) = (db.clone(), state);
     let (db_bm, state_bm) = (db.clone(), state);
@@ -154,7 +153,6 @@ pub fn App() -> Element {
                 on_import: handle_import,
                 on_change_chapter: move |ch| handlers::update_reading_progress(db_ch.clone(), state_ch, ch),
                 on_change_settings: move |s| handlers::save_user_settings(db_set.clone(), state_set, s),
-                on_select_format: move |(b, fmt)| handlers::download_online_book(db_dl.clone(), state_dl, b, fmt),
                 on_export_backup: move |_| handlers::export_library_backup(db_exp.clone(), state_exp),
                 on_restore_backup: move |json| handlers::restore_library_backup(db_res.clone(), state_res, json),
                 on_toggle_bookmark: move |_| {

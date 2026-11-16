@@ -4,6 +4,21 @@ use crate::theme::ThemeMode;
 use super::highlight::highlight_html;
 use super::top_bar::ReadingMode;
 
+const SCROLL_SCRIPT: &str = r#"
+    (function() {
+        if (window.__baca_obs) window.__baca_obs.disconnect();
+        var s = document.getElementById("baca-scroll-sentinel");
+        var t = document.getElementById("baca-auto-next-trigger");
+        if (s && t) {
+            var o = new IntersectionObserver(function(e) {
+                if (e[0] && e[0].isIntersecting) t.click();
+            }, { threshold: 0.1 });
+            o.observe(s);
+            window.__baca_obs = o;
+        }
+    })();
+"#;
+
 #[component]
 pub fn ReaderCanvas(
     current_ch: Option<Chapter>,
@@ -16,7 +31,6 @@ pub fn ReaderCanvas(
     reading_mode: ReadingMode,
     highlight_keyword: Option<String>,
     on_change_chapter: EventHandler<usize>,
-    on_toggle_ai: EventHandler<()>,
     on_clear_highlight: EventHandler<()>,
 ) -> Element {
     let mut touch_start_x = use_signal(|| 0.0f64);
@@ -41,12 +55,8 @@ pub fn ReaderCanvas(
         let on_change = on_change_chapter.clone();
         move || {
             let p = *current_page.read();
-            if p + 1 < est_pages {
-                current_page.set(p + 1);
-            } else if current_chapter + 1 < total_chapters {
-                current_page.set(0);
-                on_change.call(current_chapter + 1);
-            }
+            if p + 1 < est_pages { current_page.set(p + 1); }
+            else if current_chapter + 1 < total_chapters { current_page.set(0); on_change.call(current_chapter + 1); }
         }
     };
 
@@ -54,12 +64,8 @@ pub fn ReaderCanvas(
         let on_change = on_change_chapter.clone();
         move || {
             let p = *current_page.read();
-            if p > 0 {
-                current_page.set(p - 1);
-            } else if current_chapter > 0 {
-                current_page.set(0);
-                on_change.call(current_chapter - 1);
-            }
+            if p > 0 { current_page.set(p - 1); }
+            else if current_chapter > 0 { current_page.set(0); on_change.call(current_chapter - 1); }
         }
     };
 
@@ -142,8 +148,8 @@ pub fn ReaderCanvas(
                         div { class: "prose max-w-none leading-relaxed text-justify", dangerous_inner_html: "{rendered_html}" }
                     }
 
-                    div { class: "flex items-center justify-between pt-4 pb-2 select-none",
-                        if let Some(kw) = &highlight_keyword {
+                    if let Some(kw) = &highlight_keyword {
+                        div { class: "pt-4 pb-2 select-none",
                             button {
                                 class: "rounded-full px-3 py-1 text-xs font-sans font-medium flex items-center gap-1.5 border apple-tap shadow-xs",
                                 style: "background-color: #fef3c7; border-color: #f59e0b; color: #78350f;",
@@ -151,16 +157,6 @@ pub fn ReaderCanvas(
                                 span { "Menyorot: \"{kw}\"" }
                                 span { class: "font-bold", "✕" }
                             }
-                        } else { div {} }
-
-                        button {
-                            class: "rounded-full px-4 py-1.5 text-xs font-sans font-medium flex items-center gap-1.5 shadow-sm border apple-tap transition-all",
-                            style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_secondary()};",
-                            onclick: move |_| on_toggle_ai.call(()),
-                            svg { class: "w-3 h-3 text-amber-500", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
-                                path { d: "m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" }
-                            }
-                            span { "Tanya AI" }
                         }
                     }
                 }
@@ -172,22 +168,25 @@ pub fn ReaderCanvas(
                 div { class: "mt-4 text-center select-none font-sans text-xs opacity-60 tracking-wide",
                     "Halaman {current_page + 1} dari {est_pages} • Geser ke kiri/kanan untuk membalik"
                 }
-            } else {
-                div { class: "mt-16 pt-8 border-t flex items-center justify-between select-none", style: "border-color: {theme.border_color()};",
+            } else if current_chapter + 1 < total_chapters {
+                div {
+                    id: "baca-scroll-sentinel",
+                    class: "py-16 flex flex-col items-center justify-center opacity-40 select-none animate-pulse",
+                    style: "color: {theme.text_secondary()};",
+                    span { class: "font-sans text-xs tracking-wider", "Memuat Bab Selanjutnya..." }
                     button {
-                        class: "px-4 py-2 rounded-xl border text-xs font-sans font-medium apple-tap transition-all disabled:opacity-20 disabled:pointer-events-none",
-                        style: "border-color: {theme.border_color()}; background-color: {theme.surface_color()}; color: {theme.text_primary()};",
-                        disabled: current_chapter == 0,
-                        onclick: move |_| { if current_chapter > 0 { on_change_chapter.call(current_chapter - 1); } },
-                        "← Bab Sebelumnya"
+                        id: "baca-auto-next-trigger",
+                        class: "hidden",
+                        onclick: {
+                            let on_ch = on_change_chapter.clone();
+                            move |_| {
+                                if current_chapter + 1 < total_chapters {
+                                    on_ch.call(current_chapter + 1);
+                                }
+                            }
+                        }
                     }
-                    button {
-                        class: "px-4 py-2 rounded-xl border text-xs font-sans font-medium apple-tap transition-all disabled:opacity-20 disabled:pointer-events-none",
-                        style: "border-color: {theme.border_color()}; background-color: {theme.surface_color()}; color: {theme.text_primary()};",
-                        disabled: current_chapter + 1 >= total_chapters,
-                        onclick: move |_| { if current_chapter + 1 < total_chapters { on_change_chapter.call(current_chapter + 1); } },
-                        "Bab Selanjutnya →"
-                    }
+                    script { dangerous_inner_html: "{SCROLL_SCRIPT}" }
                 }
             }
         }

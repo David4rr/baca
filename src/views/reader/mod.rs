@@ -135,7 +135,6 @@ pub fn ReaderView(
                         on_ch.call(ch);
                     }
                 },
-                on_toggle_ai: move |_| on_toggle_ai.call(()),
                 on_clear_highlight: move |_| on_clear_highlight.call(()),
             }
 

@@ -10,20 +10,27 @@ pub fn ExploreBookItem(
     theme: ThemeMode,
     is_downloaded: bool,
     on_imported: EventHandler<Book>,
+    on_select: EventHandler<ArchiveBook>,
 ) -> Element {
+    let book_click = book.clone();
     let thumb_url = book.thumbnail_url();
     let author_display = book.author_display();
     let downloads_count = book.downloads.unwrap_or(0);
     let title = book.title.clone();
+    let desc_text = book.description.clone().unwrap_or_else(|| "Koleksi literatur domain publik dari Project Gutenberg & Internet Archive.".to_string());
 
     rsx! {
         div {
             class: "explore-book-item w-full rounded-3xl p-4 sm:p-5 border transition-all duration-300 flex flex-col justify-between select-none shadow-sm hover:shadow-md gap-4",
             style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; box-shadow: {theme.card_shadow()};",
 
-            // Top Row: Thumbnail + Info
+            // Top Row: Thumbnail + Info (clickable to view full detail)
             div {
-                class: "flex items-start gap-4",
+                class: "flex items-start gap-4 cursor-pointer apple-tap hover:opacity-90 transition-opacity",
+                onclick: {
+                    let b = book_click.clone();
+                    move |_| on_select.call(b.clone())
+                },
 
                 // 1. Cover Thumbnail with 3D Spine Depth
                 div {
@@ -58,12 +65,10 @@ pub fn ExploreBookItem(
                             }
                         }
 
-                        if let Some(desc) = &book.description {
-                            p {
-                                class: "font-sans text-[11px] opacity-60 mt-2 line-clamp-2 leading-relaxed hidden sm:block",
-                                style: "color: {theme.text_secondary()};",
-                                "{desc}"
-                            }
+                        p {
+                            class: "font-sans text-[11px] opacity-60 mt-1.5 line-clamp-2 leading-relaxed",
+                            style: "color: {theme.text_secondary()};",
+                            "{desc_text}"
                         }
                     }
 

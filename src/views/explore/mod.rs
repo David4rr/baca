@@ -11,8 +11,9 @@ pub use header::ExploreHeader;
 #[component]
 pub fn ExploreView(
     theme: ThemeMode,
-    downloaded_ids: Vec<String>,
+    library_books: Vec<Book>,
     on_import_book: EventHandler<Book>,
+    on_select_detail: EventHandler<ArchiveBook>,
     on_back: EventHandler<()>,
 ) -> Element {
     let mut search_query = use_signal(|| "".to_string());
@@ -142,8 +143,14 @@ pub fn ExploreView(
                     for book in results.read().iter() {
                         {
                             let id = book.identifier.clone();
-                            let is_done = downloaded_ids.contains(&id);
+                            let clean_id = id.replace(|c: char| !c.is_alphanumeric(), "_");
+                            let is_done = library_books.iter().any(|b| {
+                                b.title.trim().eq_ignore_ascii_case(book.title.trim())
+                                    || (!clean_id.is_empty() && b.file_path.contains(&clean_id))
+                                    || b.id == id
+                            });
                             let on_imp = on_import_book.clone();
+                            let on_det = on_select_detail.clone();
                             rsx! {
                                 ExploreBookItem {
                                     key: "{id}",
@@ -151,6 +158,7 @@ pub fn ExploreView(
                                     theme: theme,
                                     is_downloaded: is_done,
                                     on_imported: move |b| on_imp.call(b),
+                                    on_select: move |b| on_det.call(b),
                                 }
                             }
                         }

@@ -103,7 +103,7 @@ pub fn MorphingDownloadButton(
                                             span { class: "font-sans text-[10px] opacity-60 leading-tight mt-0.5", "Format Teks Adaptif" }
                                         }
                                     }
-                                    span { class: "px-2 py-0.5 rounded-full text-[10px] font-mono font-medium border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20", "~680 KB" }
+                                    span { class: "px-2 py-0.5 rounded-full text-[10px] font-sans font-medium border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20", "E-Book Ringan" }
                                 }
                             }
 
@@ -118,7 +118,7 @@ pub fn MorphingDownloadButton(
                                             span { class: "font-sans text-[10px] opacity-60 leading-tight mt-0.5", "Tata Letak Cetak Asli" }
                                         }
                                     }
-                                    span { class: "px-2 py-0.5 rounded-full text-[10px] font-mono font-medium border bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20", "~4.2 MB" }
+                                    span { class: "px-2 py-0.5 rounded-full text-[10px] font-sans font-medium border bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20", "Format Cetak" }
                                 }
                             }
                         }

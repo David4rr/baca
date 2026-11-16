@@ -15,6 +15,7 @@ struct GutendexBook {
     formats: HashMap<String, String>,
     download_count: Option<u64>,
     summaries: Option<Vec<String>>,
+    subjects: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -77,7 +78,8 @@ pub async fn search_archive(query: &str, page: u32) -> Result<Vec<ArchiveBook>, 
                     if has_epub || has_pdf {
                         let cover_url = b.formats.get("image/jpeg").cloned();
                         let author = b.authors.first().map(|a| a.name.clone());
-                        let desc = b.summaries.and_then(|s| s.into_iter().next());
+                        let desc = b.summaries.and_then(|s| s.into_iter().next())
+                            .or_else(|| b.subjects.as_ref().map(|s| s.iter().take(3).cloned().collect::<Vec<_>>().join(" • ")));
                         let id = format!(
                             "gutenberg:{}|{}",
                             epub_url.as_deref().unwrap_or(""),

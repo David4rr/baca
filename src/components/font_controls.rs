@@ -17,8 +17,8 @@ pub fn FontControls(
         div { class: "fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-fade-in", onclick: move |_| on_close.call(()) }
 
         div {
-            class: "fixed bottom-6 right-6 z-50 w-96 max-w-[94vw] p-6 rounded-[28px] shadow-2xl border flex flex-col gap-5 animate-slide-up",
-            style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+            class: "fixed top-[calc(env(safe-area-inset-top,0px)+3.8rem)] right-3 sm:right-6 z-50 w-88 max-w-[92vw] p-5 rounded-[28px] shadow-2xl border flex flex-col gap-4 origin-top-right transform-gpu transition-all duration-200 animate-fade-in backdrop-blur-2xl",
+            style: "background-color: {theme.surface_color()}F5; border-color: {theme.border_color()}; color: {theme.text_primary()};",
 
             div { class: "flex items-center justify-between pb-2 border-b", style: "border-color: {theme.border_color()};",
                 div {

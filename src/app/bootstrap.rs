@@ -3,26 +3,26 @@ use crate::db::Database;
 use std::sync::Arc;
 
 pub fn bootstrap_library(db: &Arc<Database>) -> Vec<Book> {
-    let mut existing = db.get_all_books().unwrap_or_default();
-    let app_dir = Database::get_app_dir();
-    let starters = crate::engine::ensure_starter_library(&app_dir);
+    let existing = db.get_all_books().unwrap_or_default();
+    
+    // Purge unwanted starter books from previously seeded libraries
+    let starter_titles = [
+        "atomic habits",
+        "the psychology of money",
+        "sapiens",
+        "the midnight library",
+    ];
 
-    if existing.is_empty() {
-        for b in &starters {
-            let _ = db.insert_or_update_book(b);
+    let mut user_books = Vec::new();
+    for b in existing {
+        let is_starter = b.id.starts_with("starter-book-") 
+            || starter_titles.iter().any(|t| b.title.to_lowercase().contains(t));
+        if is_starter {
+            let _ = db.delete_book(&b.id);
+        } else {
+            user_books.push(b);
         }
-        starters
-    } else {
-        for b in &mut existing {
-            if b.cover_image.is_none() {
-                if let Some(s) = starters.iter().find(|s| {
-                    s.id == b.id || s.title.to_lowercase() == b.title.to_lowercase()
-                }) {
-                    b.cover_image = s.cover_image.clone();
-                    let _ = db.insert_or_update_book(b);
-                }
-            }
-        }
-        existing
     }
+
+    user_books
 }
