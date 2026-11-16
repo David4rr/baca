@@ -66,6 +66,7 @@ pub fn ReaderView(
     let epub_book = epub.unwrap();
     let total_chapters = epub_book.chapters.len();
     let current_ch = epub_book.chapters.get(current_chapter).cloned();
+    let next_ch = epub_book.chapters.get(current_chapter + 1).cloned();
 
     let progress_percent = if total_chapters > 0 {
         (((current_chapter as f32) / (total_chapters as f32)) * 100.0).round() as u32
@@ -89,10 +90,10 @@ pub fn ReaderView(
 
     rsx! {
         div {
-            class: "reader-screen flex-1 flex flex-col items-center relative overflow-y-auto min-h-screen selection:bg-amber-200 transition-colors duration-300 animate-card-morph",
+            class: "reader-screen flex-1 flex flex-col items-center relative overflow-y-auto min-h-screen selection:bg-amber-200 transition-colors duration-300",
             style: "background-color: {theme.bg_color()}; color: {theme.text_primary()};",
 
-            // 1. Floating Apple Top Navigation Bar
+            // 1. Floating Apple Top Navigation Bar (Fixed)
             ReaderTopBar {
                 theme: theme,
                 reading_mode: cur_mode,
@@ -115,6 +116,7 @@ pub fn ReaderView(
             // 2. Main Editorial Reading Canvas
             ReaderCanvas {
                 current_ch: current_ch,
+                next_ch: next_ch,
                 current_chapter: current_chapter,
                 total_chapters: total_chapters,
                 font_family_css: font_family_css,

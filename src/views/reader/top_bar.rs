@@ -24,19 +24,20 @@ pub fn ReaderTopBar(
 
     rsx! {
         div {
-            class: "sticky top-0 z-30 w-full max-w-3xl mx-auto px-3 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-2.5 flex items-center justify-between pointer-events-auto apple-nav-glass transition-all duration-200 select-none transform-gpu will-change-transform",
-            style: "background-color: {theme.bg_color()}DD;",
+            class: "fixed top-0 left-0 right-0 z-30 w-full px-3 sm:px-6 pb-2.5 border-b apple-nav-glass transition-all duration-200 select-none",
+            style: "padding-top: max(calc(env(safe-area-inset-top, 0px) + 0.65rem), 2.25rem); background-color: {theme.bg_color()}F0; border-color: {theme.border_color()}60; -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px);",
 
-            // Circular Back Button (<)
-            button {
-                class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all",
-                style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
-                title: "Kembali ke Rak Buku",
-                onclick: move |_| on_back.call(()),
-                svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5", stroke_linecap: "round", stroke_linejoin: "round",
-                    polyline { points: "15 18 9 12 15 6" }
+            div { class: "w-full max-w-3xl mx-auto flex items-center justify-between",
+                // Circular Back Button (<)
+                button {
+                    class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all",
+                    style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                    title: "Kembali ke Rak Buku",
+                    onclick: move |_| on_back.call(()),
+                    svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5", stroke_linecap: "round", stroke_linejoin: "round",
+                        polyline { points: "15 18 9 12 15 6" }
+                    }
                 }
-            }
 
             // Top Right Action Cluster: Mode Toggle, Bookmark, Search, AI, Aa, TOC
             div { class: "flex items-center gap-1.5 sm:gap-2",
@@ -63,7 +64,7 @@ pub fn ReaderTopBar(
                     }
                 }
 
-                // Bookmark Toggle Button (🔖)
+                // Bookmark Toggle Button
                 button {
                     class: "w-9 h-9 rounded-full flex items-center justify-center apple-tap transition-all",
                     style: if is_bookmarked {
@@ -130,4 +131,5 @@ pub fn ReaderTopBar(
             }
         }
     }
+}
 }

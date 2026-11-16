@@ -99,7 +99,7 @@ pub fn AiSection(
                         on_save.call((k, m));
                         show_saved.set(true);
                     },
-                    if *show_saved.read() { "Tersimpan ✓" } else { "Simpan Kunci" }
+                    if *show_saved.read() { "Tersimpan" } else { "Simpan Kunci" }
                 }
             }
         }

@@ -75,12 +75,13 @@ pub fn ShelfView(
 
                 div {
                     class: "flex items-center gap-2 flex-shrink-0",
-                    button {
-                        class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all",
+                    label {
+                        r#for: "baca-file-picker",
+                        class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all cursor-pointer",
                         style: "width: 40px; height: 40px; min-width: 40px; min-height: 40px; background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
                         title: "Tambah Buku Lokal (EPUB / PDF)",
                         onclick: move |_| on_import.call(()),
-                        svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.2", stroke_linecap: "round", stroke_linejoin: "round",
+                        svg { class: "w-4 h-4 pointer-events-none", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.2", stroke_linecap: "round", stroke_linejoin: "round",
                             line { x1: "12", y1: "5", x2: "12", y2: "19" }
                             line { x1: "5", y1: "12", x2: "19", y2: "12" }
                         }
@@ -129,7 +130,10 @@ pub fn ShelfView(
                                     let on_search = on_search.clone();
                                     move |_| on_search.call(String::new())
                                 },
-                                "✕"
+                                svg { class: "w-3.5 h-3.5", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
+                                    line { x1: "18", y1: "6", x2: "6", y2: "18" }
+                                    line { x1: "6", y1: "6", x2: "18", y2: "18" }
+                                }
                             }
                         }
                     }

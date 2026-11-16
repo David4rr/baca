@@ -74,7 +74,15 @@ pub fn UpdateModal(release: ReleaseInfo, theme: ThemeMode, on_close: EventHandle
                             span { class: "font-sans text-xs opacity-60", style: "color: {theme.text_secondary()};", "Versi baru siap diunduh dan dipasang" }
                         }
                     }
-                    button { class: "w-8 h-8 rounded-full flex items-center justify-center border apple-tap opacity-70", style: "border-color: {theme.border_color()}; color: {theme.text_secondary()};", onclick: move |_| on_close.call(()), "✕" }
+                    button {
+                        class: "w-8 h-8 rounded-full flex items-center justify-center border apple-tap opacity-70",
+                        style: "border-color: {theme.border_color()}; color: {theme.text_secondary()};",
+                        onclick: move |_| on_close.call(()),
+                        svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
+                            line { x1: "18", y1: "6", x2: "6", y2: "18" }
+                            line { x1: "6", y1: "6", x2: "18", y2: "18" }
+                        }
+                    }
                 }
 
                 // Version comparison pill
@@ -85,7 +93,9 @@ pub fn UpdateModal(release: ReleaseInfo, theme: ThemeMode, on_close: EventHandle
                         span { class: "text-xs font-sans opacity-70", style: "color: {theme.text_secondary()};", "Versi Sekarang:" }
                         span { class: "text-xs font-mono font-medium px-2 py-0.5 rounded-full border", style: "border-color: {theme.border_color()}; color: {theme.text_primary()};", "v{current_ver}" }
                     }
-                    span { class: "font-sans text-xs opacity-40", "➔" }
+                    svg { class: "w-3.5 h-3.5 opacity-40", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
+                        polyline { points: "9 18 15 12 9 6" }
+                    }
                     div { class: "flex items-center gap-2",
                         span { class: "text-xs font-sans font-medium", style: "color: {theme.accent_color()};", "Versi Baru:" }
                         span { class: "text-xs font-mono font-bold px-2 py-0.5 rounded-full text-white shadow-sm", style: "background-color: {theme.accent_color()};", "{release.tag_name}" }
@@ -110,8 +120,11 @@ pub fn UpdateModal(release: ReleaseInfo, theme: ThemeMode, on_close: EventHandle
                     class: "flex flex-col gap-2.5 pt-2",
                     if *download_complete.read() {
                         div { class: "flex flex-col gap-2",
-                            div { class: "p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-medium text-center flex flex-col gap-1",
-                                span { class: "font-semibold", "✓ Berkas berhasil diunduh!" }
+                            div { class: "p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-medium text-center flex flex-col items-center gap-1.5",
+                                div { class: "flex items-center gap-1.5 font-semibold",
+                                    svg { class: "w-3.5 h-3.5", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5", stroke_linecap: "round", stroke_linejoin: "round", polyline { points: "20 6 9 17 4 12" } }
+                                    span { "Berkas berhasil diunduh!" }
+                                }
                                 if let Some(path) = saved_path.read().as_ref() {
                                     span { class: "text-[11px] opacity-75 font-mono truncate", "Tersimpan: {path}" }
                                 }

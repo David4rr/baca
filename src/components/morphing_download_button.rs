@@ -89,7 +89,14 @@ pub fn MorphingDownloadButton(
 
                             div { class: "flex items-center justify-between px-2 pt-1 pb-1.5 border-b", style: "border-color: {theme.border_color()};",
                                 span { class: "text-[10px] font-sans font-bold uppercase tracking-wider opacity-50", "Pilih Format Buku" }
-                                button { class: "w-5 h-5 rounded-full flex items-center justify-center text-xs opacity-50 hover:opacity-100", onclick: move |_| is_dropdown_open.set(false), "✕" }
+                                button {
+                                    class: "w-5 h-5 rounded-full flex items-center justify-center opacity-50 hover:opacity-100",
+                                    onclick: move |_| is_dropdown_open.set(false),
+                                    svg { class: "w-3 h-3", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
+                                        line { x1: "18", y1: "6", x2: "6", y2: "18" }
+                                        line { x1: "6", y1: "6", x2: "18", y2: "18" }
+                                    }
+                                }
                             }
 
                             if has_epub {
@@ -143,7 +150,7 @@ pub fn MorphingDownloadButton(
                         class: "h-9 px-3.5 rounded-full flex items-center gap-1.5 border shadow-xs animate-spring-pop",
                         style: "background-color: #10B98115; border-color: #10B98140; color: #10B981;",
                         svg { class: "w-3.5 h-3.5", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5", stroke_linecap: "round", stroke_linejoin: "round", polyline { points: "20 6 9 17 4 12" } }
-                        span { class: "text-xs font-sans font-semibold", "✓ Tersimpan" }
+                        span { class: "text-xs font-sans font-semibold", "Tersimpan" }
                     }
                 },
                 MorphState::Failed(err) => rsx! {
@@ -152,7 +159,11 @@ pub fn MorphingDownloadButton(
                         style: "background-color: #EF444415; border-color: #EF444440; color: #EF4444;",
                         title: "{err}",
                         onclick: move |e| { e.stop_propagation(); state.set(MorphState::Idle); },
-                        span { class: "text-xs font-sans font-medium", "✕ Gagal • Coba Lagi" }
+                        svg { class: "w-3 h-3", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
+                            line { x1: "18", y1: "6", x2: "6", y2: "18" }
+                            line { x1: "6", y1: "6", x2: "18", y2: "18" }
+                        }
+                        span { class: "text-xs font-sans font-medium", "Gagal • Coba Lagi" }
                     }
                 },
             }

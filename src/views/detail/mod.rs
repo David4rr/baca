@@ -133,7 +133,11 @@ pub fn BookDetailView(
                                     let b = existing_book.clone();
                                     move |_| on_open_book.call(b.clone())
                                 },
-                                "📖 Buka Buku Sekarang"
+                                svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2",
+                                    path { d: "M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" }
+                                    path { d: "M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" }
+                                }
+                                span { "Buka Buku Sekarang" }
                             }
                         } else {
                             MorphingDownloadButton {

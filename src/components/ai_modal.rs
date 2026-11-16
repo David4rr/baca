@@ -70,7 +70,15 @@ pub fn AiExplanationModal(
                             p { class: "font-sans text-[11px] opacity-60", "Didukung Google Gemini" }
                         }
                     }
-                    button { class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-60 hover:opacity-100", style: "background-color: {theme.surface_subtle()};", onclick: move |_| on_close.call(()), "✕" }
+                    button {
+                        class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-60 hover:opacity-100",
+                        style: "background-color: {theme.surface_subtle()};",
+                        onclick: move |_| on_close.call(()),
+                        svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
+                            line { x1: "18", y1: "6", x2: "6", y2: "18" }
+                            line { x1: "6", y1: "6", x2: "18", y2: "18" }
+                        }
+                    }
                 }
 
                 // Body
@@ -113,7 +121,7 @@ pub fn AiExplanationModal(
                             div { class: "w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin" }
                             span { "Menganalisis..." }
                         } else {
-                            span { "Jelaskan dengan AI ✨" }
+                            span { "Jelaskan dengan AI" }
                         }
                     }
 

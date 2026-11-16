@@ -11,7 +11,6 @@ pub fn HeroCard(
 ) -> Element {
     let book_click = book.clone();
     let book_delete = book.clone();
-    let mut show_menu = use_signal(|| false);
     let progress = (book.progress_percent * 100.0).round() as u32;
     let est_minutes_left = ((1.0 - book.progress_percent) * 35.0).max(3.0).round() as u32;
 
@@ -63,59 +62,29 @@ pub fn HeroCard(
                                 "{book.title}"
                             }
 
-                            // 3-dots Context Menu Button (matching reference)
-                            div { class: "relative flex-shrink-0",
-                                button {
-                                    class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap transition-colors",
-                                    style: "width: 32px; height: 32px; min-width: 32px; min-height: 32px; background-color: {theme.surface_subtle()}; color: {theme.text_secondary()};",
-                                    title: "Menu Opsi Buku",
-                                    onclick: move |e: MouseEvent| {
+                            // Direct Delete Button (eliminates redundant menu on last read)
+                            button {
+                                class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap transition-all opacity-60 hover:opacity-100 hover:text-rose-500 hover:bg-rose-500/10 flex-shrink-0",
+                                style: "width: 32px; height: 32px; min-width: 32px; min-height: 32px; background-color: {theme.surface_subtle()}; color: {theme.text_secondary()};",
+                                title: "Hapus Buku dari Rak",
+                                onclick: {
+                                    let id = book_delete.id.clone();
+                                    move |e: MouseEvent| {
                                         e.stop_propagation();
-                                        show_menu.toggle();
-                                    },
-                                    svg {
-                                        class: "w-4 h-4",
-                                        width: "16",
-                                        height: "16",
-                                        style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
-                                        view_box: "0 0 24 24",
-                                        fill: "currentColor",
-                                        circle { cx: "5", cy: "12", r: "2" }
-                                        circle { cx: "12", cy: "12", r: "2" }
-                                        circle { cx: "19", cy: "12", r: "2" }
+                                        on_delete_book.call(id.clone());
                                     }
-                                }
-
-                                if *show_menu.read() {
-                                    div {
-                                        class: "absolute right-0 top-10 z-30 p-1.5 rounded-2xl shadow-xl border flex flex-col gap-1 min-w-[170px] backdrop-blur-xl animate-fade-in",
-                                        style: "background-color: {theme.surface_color()}F5; border-color: {theme.border_color()};",
-                                        button {
-                                            class: "flex items-center gap-2 px-3 py-2 text-xs font-sans font-medium rounded-xl apple-tap hover:bg-black/5 dark:hover:bg-white/5 text-left",
-                                            style: "color: {theme.text_primary()};",
-                                            onclick: {
-                                                let b = book_click.clone();
-                                                move |e: MouseEvent| {
-                                                    e.stop_propagation();
-                                                    show_menu.set(false);
-                                                    on_select_book.call(b.clone());
-                                                }
-                                            },
-                                            "📖 Lanjut Baca"
-                                        }
-                                        button {
-                                            class: "flex items-center gap-2 px-3 py-2 text-xs font-sans font-medium rounded-xl text-rose-500 apple-tap hover:bg-rose-500/10 text-left",
-                                            onclick: {
-                                                let id = book_delete.id.clone();
-                                                move |e: MouseEvent| {
-                                                    e.stop_propagation();
-                                                    show_menu.set(false);
-                                                    on_delete_book.call(id.clone());
-                                                }
-                                            },
-                                            "🗑️ Hapus Buku"
-                                        }
-                                    }
+                                },
+                                svg {
+                                    class: "w-4 h-4",
+                                    view_box: "0 0 24 24",
+                                    fill: "none",
+                                    stroke: "currentColor",
+                                    stroke_width: "2",
+                                    stroke_linecap: "round",
+                                    stroke_linejoin: "round",
+                                    path { d: "M3 6h18" }
+                                    path { d: "M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" }
+                                    path { d: "M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" }
                                 }
                             }
                         }

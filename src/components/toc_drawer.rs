@@ -119,7 +119,7 @@ pub fn TocDrawer(
                     if bookmarks.is_empty() {
                         div { class: "py-16 text-center opacity-40 text-xs font-sans space-y-2",
                             p { "Belum ada markah tersimpan." }
-                            p { class: "text-[11px]", "Ketuk ikon 🔖 di atas untuk menandai bab." }
+                            p { class: "text-[11px]", "Ketuk ikon markah di bilah atas untuk menandai bab." }
                         }
                     } else {
                         for bm in bookmarks {

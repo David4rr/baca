@@ -104,7 +104,10 @@ pub fn ExploreView(
                     button {
                         class: "ml-2 opacity-60 hover:opacity-100 p-1",
                         onclick: move |_| error_msg.set(None),
-                        "✕"
+                        svg { class: "w-3.5 h-3.5", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
+                            line { x1: "18", y1: "6", x2: "6", y2: "18" }
+                            line { x1: "6", y1: "6", x2: "18", y2: "18" }
+                        }
                     }
                 }
             }

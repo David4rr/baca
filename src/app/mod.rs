@@ -96,17 +96,38 @@ pub fn App() -> Element {
         });
     };
 
-    // Android SAF change listener
+    // File picker change listener (Android SAF + Desktop)
     let db_saf = db.clone();
     let handle_file_change = move |evt: FormEvent| {
         if let Some(file_engine) = evt.files() {
-            for f in file_engine.files() {
+            let files = file_engine.files();
+            for f in files {
                 let (f_clone, fe_clone, db_clone) = (f.clone(), file_engine.clone(), db_saf.clone());
                 spawn(async move {
                     if let Some(bytes) = fe_clone.read_file(&f_clone).await {
-                        if let Ok(b) = import_local_file(&db_clone, &f_clone, Some(&bytes), None) {
-                            state.books.write().insert(0, b);
-                            *state.toast_message.write() = Some("Buku berhasil ditambahkan".to_string());
+                        match import_local_file(&db_clone, &f_clone, Some(&bytes), None) {
+                            Ok(b) => {
+                                state.books.write().insert(0, b);
+                                *state.toast_message.write() = Some("Buku berhasil ditambahkan".to_string());
+                            }
+                            Err(e) => {
+                                *state.toast_message.write() = Some(format!("Gagal: {}", e));
+                            }
+                        }
+                    } else {
+                        let path = std::path::Path::new(&f_clone);
+                        if path.exists() {
+                            match import_local_file(&db_clone, &f_clone, None, Some(path)) {
+                                Ok(b) => {
+                                    state.books.write().insert(0, b);
+                                    *state.toast_message.write() = Some("Buku berhasil ditambahkan".to_string());
+                                }
+                                Err(e) => {
+                                    *state.toast_message.write() = Some(format!("Gagal: {}", e));
+                                }
+                            }
+                        } else {
+                            *state.toast_message.write() = Some("Gagal membaca berkas".to_string());
                         }
                     }
                 });
@@ -127,7 +148,7 @@ pub fn App() -> Element {
     rsx! {
         style { dangerous_inner_html: include_str!("../../assets/styles/bundle.css") }
 
-        input { r#type: "file", id: "baca-file-picker", accept: ".epub,.pdf", style: "display: none !important;", onchange: handle_file_change }
+        input { r#type: "file", id: "baca-file-picker", accept: ".epub,.pdf,application/epub+zip,application/pdf", style: "display: none !important;", onchange: handle_file_change }
         button { id: "baca-back-trigger", style: "display: none !important;", onclick: move |_| handle_device_back(state, show_update_modal) }
         script { dangerous_inner_html: "{BACK_SCRIPT}" }
 
@@ -135,10 +156,9 @@ pub fn App() -> Element {
             class: "app-root flex flex-col min-h-screen transition-colors duration-300 font-sans selection:bg-amber-200 relative overflow-x-hidden",
             style: "background-color: {current_theme.bg_color()}; color: {current_theme.text_primary()};",
 
-            // Apple Progressive Blur Status Bar Shield (for non-reader views)
+            // Apple Progressive Blur Status Bar (for non-reader views)
             if !matches!(&*state.current_view.read(), crate::state::View::Reader { .. }) {
-                div { class: "apple-status-bar-shield", style: "background-color: {current_theme.bg_color()}30;" }
-                div { class: "apple-progressive-blur", style: "background-color: {current_theme.bg_color()}60;" }
+                div { class: "apple-progressive-blur", style: "background: linear-gradient(to bottom, {current_theme.bg_color()}40 0%, transparent 100%);" }
             }
 
             AppRouter {

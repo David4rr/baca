@@ -61,7 +61,15 @@ pub fn InBookSearchModal(
                     input { r#type: "text", class: "flex-1 bg-transparent border-none text-base font-sans outline-none placeholder:opacity-40",
                         placeholder: "Cari kata atau kalimat di buku...", value: "{query}", autofocus: true, oninput: move |e| do_search(e.value())
                     }
-                    button { class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-60 hover:opacity-100", style: "background-color: {theme.surface_subtle()};", onclick: move |_| on_close.call(()), "✕" }
+                    button {
+                        class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-60 hover:opacity-100",
+                        style: "background-color: {theme.surface_subtle()};",
+                        onclick: move |_| on_close.call(()),
+                        svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
+                            line { x1: "18", y1: "6", x2: "6", y2: "18" }
+                            line { x1: "6", y1: "6", x2: "18", y2: "18" }
+                        }
+                    }
                 }
 
                 div { class: "px-6 py-2.5 text-[11px] font-sans font-medium uppercase tracking-wider opacity-50 border-b", style: "border-color: {theme.border_color()}; background-color: {theme.surface_subtle()};",
