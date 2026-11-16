@@ -67,6 +67,7 @@ echo "==> 5. Assembling Universal APK via Gradle..."
 
 echo "==> 6. Copying Universal APK to dist/release/..."
 mkdir -p dist/release
-cp target/dx/baca/release/android/app/app/build/outputs/apk/debug/app-debug.apk dist/release/baca-v3.3.3-android-universal.apk
+VERSION=$(grep '^version = ' Cargo.toml | head -n 1 | cut -d '"' -f 2)
+cp target/dx/baca/release/android/app/app/build/outputs/apk/debug/app-debug.apk dist/release/baca-v${VERSION}-android-universal.apk
 
-echo "==> Done! Output: dist/release/baca-v3.3.3-android-universal.apk"
+echo "==> Done! Output: dist/release/baca-v${VERSION}-android-universal.apk"
