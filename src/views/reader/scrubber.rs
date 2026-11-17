@@ -8,12 +8,25 @@ pub fn ReaderScrubber(
     total_chapters: usize,
     est_minutes_left: usize,
     theme: ThemeMode,
+    is_fullscreen: bool,
+    chapter_title: Option<String>,
     on_change_theme: EventHandler<String>,
     on_seek: EventHandler<usize>,
 ) -> Element {
+    let visibility_class = if is_fullscreen {
+        "translate-y-full opacity-0 pointer-events-none"
+    } else {
+        "translate-y-0 opacity-100 pointer-events-auto"
+    };
+
+    let display_title = match &chapter_title {
+        Some(t) if !t.trim().is_empty() => t.clone(),
+        _ => format!("Halaman {}", current_chapter + 1),
+    };
+
     rsx! {
         div {
-            class: "fixed bottom-0 left-0 right-0 z-30 pointer-events-none flex flex-col items-center pb-6 px-6 select-none",
+            class: "fixed bottom-0 left-0 right-0 z-30 pointer-events-none flex flex-col items-center pb-6 px-6 select-none transition-all duration-300 {visibility_class}",
 
             // 1. Apple Scrubber Bar Container
             div {
@@ -39,25 +52,28 @@ pub fn ReaderScrubber(
                     },
                 }
 
-                // Scrubber Labels (65% | Chapter 5 of 12 | 14 min left)
+                // Scrubber Labels (65% | Chapter Title | 14 min left)
                 div {
-                    class: "flex items-center justify-between text-[11px] font-sans font-medium mt-1",
+                    class: "flex items-center justify-between text-[11px] font-sans font-medium mt-1 gap-2",
                     span {
+                        class: "shrink-0",
                         style: "color: {theme.text_muted()};",
                         "{progress_percent}%"
                     }
                     span {
+                        class: "truncate max-w-[200px] sm:max-w-xs text-center font-medium",
                         style: "color: {theme.text_secondary()};",
-                        "Bab {current_chapter + 1} dari {total_chapters}"
+                        "{display_title}"
                     }
                     span {
+                        class: "shrink-0",
                         style: "color: {theme.text_muted()};",
                         "{est_minutes_left} menit tersisa"
                     }
                 }
             }
 
-            // 2. Apple Segmented Control Theme Dock (Sun / Warm / Dark)
+            // 2. Apple Segmented Control Theme Dock (Sun / Warm / Dark / Slate)
             div {
                 class: "pointer-events-auto rounded-full p-1 flex items-center gap-1 backdrop-blur-2xl border shadow-md transition-all duration-300",
                 style: "background-color: {theme.surface_color()}EE; border-color: {theme.border_color()};",
@@ -74,14 +90,8 @@ pub fn ReaderScrubber(
                     aria_label: "Mode terang",
                     onclick: move |_| on_change_theme.call("light".to_string()),
                     svg {
-                        class: "w-4 h-4",
-                        width: "16",
-                        height: "16",
-                        style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
-                        view_box: "0 0 24 24",
-                        fill: "none",
-                        stroke: "currentColor",
-                        stroke_width: "2",
+                        class: "w-4 h-4", width: "16", height: "16",
+                        view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2",
                         circle { cx: "12", cy: "12", r: "5" }
                         line { x1: "12", y1: "1", x2: "12", y2: "3" }
                         line { x1: "12", y1: "21", x2: "12", y2: "23" }
@@ -104,14 +114,8 @@ pub fn ReaderScrubber(
                     aria_label: "Mode kertas hangat",
                     onclick: move |_| on_change_theme.call("warm".to_string()),
                     svg {
-                        class: "w-4 h-4",
-                        width: "16",
-                        height: "16",
-                        style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
-                        view_box: "0 0 24 24",
-                        fill: "none",
-                        stroke: "currentColor",
-                        stroke_width: "2",
+                        class: "w-4 h-4", width: "16", height: "16",
+                        view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2",
                         path { d: "M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" }
                         path { d: "M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" }
                     }
@@ -129,14 +133,8 @@ pub fn ReaderScrubber(
                     aria_label: "Mode gelap OLED",
                     onclick: move |_| on_change_theme.call("amoled".to_string()),
                     svg {
-                        class: "w-4 h-4",
-                        width: "16",
-                        height: "16",
-                        style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
-                        view_box: "0 0 24 24",
-                        fill: "none",
-                        stroke: "currentColor",
-                        stroke_width: "2",
+                        class: "w-4 h-4", width: "16", height: "16",
+                        view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2",
                         path { d: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" }
                     }
                 }
@@ -153,14 +151,8 @@ pub fn ReaderScrubber(
                     aria_label: "Mode slate",
                     onclick: move |_| on_change_theme.call("slate".to_string()),
                     svg {
-                        class: "w-4 h-4",
-                        width: "16",
-                        height: "16",
-                        style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
-                        view_box: "0 0 24 24",
-                        fill: "none",
-                        stroke: "currentColor",
-                        stroke_width: "2",
+                        class: "w-4 h-4", width: "16", height: "16",
+                        view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2",
                         path { d: "M2 12h4l3-8 4 16 3-8h6" }
                     }
                 }

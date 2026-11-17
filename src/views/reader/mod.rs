@@ -40,6 +40,7 @@ pub fn ReaderView(
     on_change_theme: EventHandler<String>,
 ) -> Element {
     let mut reading_mode = use_signal(|| ReadingMode::Scroll);
+    let mut is_fullscreen = use_signal(|| false);
     let mut session_start = use_signal(|| chrono::Utc::now().timestamp());
     let mut fraction = use_signal(|| 0.0f32);
 
@@ -53,6 +54,28 @@ pub fn ReaderView(
             }
             on_b.call(());
         }
+    };
+
+    let toggle_fullscreen = move |_| {
+        let next = !*is_fullscreen.peek();
+        is_fullscreen.set(next);
+        spawn(async move {
+            let _ = document::eval(
+                "(() => {
+                    try {
+                        if (!document.fullscreenElement) {
+                            if (document.documentElement.requestFullscreen) {
+                                document.documentElement.requestFullscreen().catch(() => {});
+                            }
+                        } else {
+                            if (document.exitFullscreen) {
+                                document.exitFullscreen().catch(() => {});
+                            }
+                        }
+                    } catch (_) {}
+                })();",
+            );
+        });
     };
 
     // Persist session time periodically so backgrounding/killing the app keeps
@@ -105,6 +128,7 @@ pub fn ReaderView(
     };
     let total_chapters = epub_book.chapters.len();
     let current_ch = epub_book.chapters.get(current_chapter).cloned();
+    let chapter_title = current_ch.as_ref().map(|c| c.title.clone());
     let local_fraction = *fraction.read();
 
     let progress_percent = if total_chapters > 0 {
@@ -128,6 +152,7 @@ pub fn ReaderView(
     };
 
     let cur_mode = *reading_mode.read();
+    let fullscreen_val = *is_fullscreen.read();
 
     rsx! {
         div {
@@ -138,6 +163,7 @@ pub fn ReaderView(
                 theme: theme,
                 reading_mode: cur_mode,
                 is_bookmarked: is_bookmarked,
+                is_fullscreen: fullscreen_val,
                 on_toggle_mode: move |_| {
                     reading_mode.set(if *reading_mode.peek() == ReadingMode::Scroll {
                         ReadingMode::Paged
@@ -151,6 +177,7 @@ pub fn ReaderView(
                 on_toggle_ai: move |_| on_toggle_ai.call(()),
                 on_toggle_typography: move |_| on_toggle_typography.call(()),
                 on_toggle_toc: move |_| on_toggle_toc.call(()),
+                on_toggle_fullscreen: toggle_fullscreen,
             }
 
             ReaderCanvas {
@@ -163,6 +190,7 @@ pub fn ReaderView(
                 margin_horizontal: settings.margin_horizontal,
                 theme: theme,
                 reading_mode: cur_mode,
+                is_fullscreen: fullscreen_val,
                 highlight_keyword: highlight_keyword,
                 on_change_chapter: {
                     let on_rec = on_record_session;
@@ -181,6 +209,7 @@ pub fn ReaderView(
                     on_progress.call((ch, f));
                 },
                 on_clear_highlight: move |_| on_clear_highlight.call(()),
+                on_toggle_fullscreen: toggle_fullscreen,
             }
 
             ReaderScrubber {
@@ -189,6 +218,8 @@ pub fn ReaderView(
                 total_chapters: total_chapters,
                 est_minutes_left: est_minutes_left,
                 theme: theme,
+                is_fullscreen: fullscreen_val,
+                chapter_title: chapter_title,
                 on_change_theme: move |t| on_change_theme.call(t),
                 on_seek: move |ch| on_change_chapter.call(ch),
             }

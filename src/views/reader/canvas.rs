@@ -12,6 +12,26 @@ struct PageProbe {
     pages: usize,
 }
 
+fn strip_page_images(html: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut cursor = 0;
+    while cursor < html.len() {
+        if let Some(start) = html[cursor..].find("<img") {
+            out.push_str(&html[cursor..cursor + start]);
+            let rest = cursor + start;
+            if let Some(end) = html[rest..].find('>') {
+                cursor = rest + end + 1;
+            } else {
+                break;
+            }
+        } else {
+            out.push_str(&html[cursor..]);
+            break;
+        }
+    }
+    out
+}
+
 const PROBE_SCRIPT: &str = r#"
 (() => {
   const measure = () => {
@@ -23,10 +43,9 @@ const PROBE_SCRIPT: &str = r#"
     const pages = Math.max(1, Math.round((el.scrollWidth + gap) / (w + gap)));
     dioxus.send({ pages: pages });
   };
-  const images = Array.from(document.images).map(img => img.decode ? img.decode().catch(() => {}) : Promise.resolve());
   const fonts = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
-  const timeout = new Promise(resolve => setTimeout(resolve, 1500));
-  Promise.race([Promise.all([fonts, ...images]), timeout])
+  const timeout = new Promise(resolve => setTimeout(resolve, 800));
+  Promise.race([fonts, timeout])
     .then(() => requestAnimationFrame(() => requestAnimationFrame(measure)));
 })();
 "#;
@@ -47,6 +66,9 @@ const BIND_SCRIPT: &str = r#"
   if (scrollEl && !scrollEl.dataset.scrollBound) {
     scrollEl.dataset.scrollBound = '1';
     let ticking = false;
+    let autoAdvancing = false;
+    let lastScrollTop = scrollEl.scrollTop;
+
     scrollEl.addEventListener('scroll', () => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
@@ -56,6 +78,22 @@ const BIND_SCRIPT: &str = r#"
           if (input) {
             input.value = fraction.toFixed(4);
             input.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+
+          const currentTop = scrollEl.scrollTop;
+          const isScrollingDown = currentTop > lastScrollTop;
+          lastScrollTop = currentTop;
+
+          // Seamless infinite scroll to next chapter at bottom
+          if (!autoAdvancing && isScrollingDown && currentTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 35) {
+            autoAdvancing = true;
+            const nextBtn = document.getElementById('baca-auto-next-btn');
+            if (nextBtn) {
+              nextBtn.click();
+              setTimeout(() => { autoAdvancing = false; }, 900);
+            } else {
+              autoAdvancing = false;
+            }
           }
           ticking = false;
         });
@@ -77,10 +115,12 @@ pub fn ReaderCanvas(
     margin_horizontal: u32,
     theme: ThemeMode,
     reading_mode: ReadingMode,
+    is_fullscreen: bool,
     highlight_keyword: Option<String>,
     on_change_chapter: EventHandler<usize>,
     on_metrics: EventHandler<(usize, f32)>,
     on_clear_highlight: EventHandler<()>,
+    on_toggle_fullscreen: EventHandler<()>,
 ) -> Element {
     let mut pages = use_signal(|| 1usize);
     let mut page = use_signal(|| 0usize);
@@ -90,18 +130,29 @@ pub fn ReaderCanvas(
     let mut resize_epoch = use_signal(|| 0u32);
     let mut measured = use_signal(|| false);
 
+    // Live swipe drag signals
+    let mut drag_offset_x = use_signal(|| 0.0f64);
+    let mut is_dragging = use_signal(|| false);
+    let mut touch_origin = use_signal(|| (0.0f64, 0.0f64));
+    let mut drag_axis = use_signal(|| 0i8); // 0 = uncommitted, 1 = horizontal, 2 = vertical
+
     let is_paged = reading_mode == ReadingMode::Paged;
     let page_index = *page.read();
+    let page_count = (*pages.read()).max(1);
 
+    // Strip redundant page scan photos from rendered HTML
     let rendered = current_ch
         .as_ref()
-        .map(|ch| match &highlight_keyword {
-            Some(kw) if kw.trim().len() >= 2 => highlight_html(&ch.html_content, kw.trim()),
-            _ => ch.html_content.clone(),
+        .map(|ch| {
+            let stripped = strip_page_images(&ch.html_content);
+            match &highlight_keyword {
+                Some(kw) if kw.trim().len() >= 2 => highlight_html(&stripped, kw.trim()),
+                _ => stripped,
+            }
         })
         .unwrap_or_default();
 
-    // Reset pagination state when the chapter changes.
+    // Reset pagination state when the chapter changes
     use_effect(move || {
         let _ = current_chapter;
         if !is_paged {
@@ -110,6 +161,8 @@ pub fn ReaderCanvas(
         page.set(0);
         pages.set(1);
         measured.set(false);
+        drag_offset_x.set(0.0);
+        is_dragging.set(false);
         let landing = *landing_for.peek() == Some(current_chapter);
         landing_last.set(landing);
         if landing {
@@ -235,14 +288,45 @@ pub fn ReaderCanvas(
         }
     };
 
-    let page_style = format!(
-        "height: 100%; column-gap: 3rem; column-fill: auto; \
-         transform: translateX(calc(-{} * (100% + 3rem)));",
-        page_index
-    );
+    // Live page translation style for Paged mode
+    let current_drag = *drag_offset_x.read();
+    let dragging = *is_dragging.read();
+    let page_style = if dragging {
+        format!(
+            "height: 100%; column-gap: 3rem; column-fill: auto; \
+             transform: translateX(calc(-{} * (100% + 3rem) + {}px)); transition: none;",
+            page_index, current_drag
+        )
+    } else {
+        format!(
+            "height: 100%; column-gap: 3rem; column-fill: auto; \
+             transform: translateX(calc(-{} * (100% + 3rem))); \
+             transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);",
+            page_index
+        )
+    };
 
-    let mut touch_start = use_signal(|| (0.0f64, 0.0f64));
-    let mut touch_moved = use_signal(|| false);
+    let paged_top_padding = if is_fullscreen {
+        "max(calc(env(safe-area-inset-top, 0px) + 1.5rem), 2rem)"
+    } else {
+        "calc(env(safe-area-inset-top, 0px) + 4.75rem)"
+    };
+    let paged_bottom_padding = if is_fullscreen {
+        "max(calc(env(safe-area-inset-bottom, 0px) + 1.5rem), 2rem)"
+    } else {
+        "calc(env(safe-area-inset-bottom, 0px) + 10.5rem)"
+    };
+
+    let scroll_top_padding = if is_fullscreen {
+        "max(calc(env(safe-area-inset-top, 0px) + 2rem), 2.5rem)"
+    } else {
+        "max(calc(env(safe-area-inset-top, 0px) + 5rem), 5.5rem)"
+    };
+    let scroll_bottom_padding = if is_fullscreen {
+        "max(calc(env(safe-area-inset-bottom, 0px) + 2rem), 2.5rem)"
+    } else {
+        "max(calc(env(safe-area-inset-bottom, 0px) + 11rem), 12rem)"
+    };
 
     rsx! {
         main {
@@ -252,7 +336,7 @@ pub fn ReaderCanvas(
             if is_paged {
                 div {
                     id: "baca-page-frame",
-                    class: "relative w-full h-full overflow-hidden",
+                    class: "relative w-full h-full overflow-hidden select-text",
                     style: "touch-action: pan-y;",
                     onwheel: {
                         let mut next = go_next;
@@ -265,40 +349,70 @@ pub fn ReaderCanvas(
                     ontouchstart: move |e: TouchEvent| {
                         if let Some(t) = e.touches().first() {
                             let p = t.client_coordinates();
-                            touch_start.set((p.x, p.y));
-                            touch_moved.set(false);
+                            touch_origin.set((p.x, p.y));
+                            drag_axis.set(0);
+                            drag_offset_x.set(0.0);
                         }
                     },
-                    ontouchmove: move |_| touch_moved.set(true),
+                    ontouchmove: move |e: TouchEvent| {
+                        if let Some(t) = e.touches().first() {
+                            let p = t.client_coordinates();
+                            let (sx, sy) = *touch_origin.peek();
+                            let (dx, dy) = (p.x - sx, p.y - sy);
+                            if *drag_axis.peek() == 0 {
+                                if dx.abs() > dy.abs() && dx.abs() > 8.0 {
+                                    drag_axis.set(1);
+                                    is_dragging.set(true);
+                                } else if dy.abs() > dx.abs() && dy.abs() > 8.0 {
+                                    drag_axis.set(2);
+                                }
+                            }
+                            if *drag_axis.peek() == 1 {
+                                // Horizontal swipe drag with boundary rubber-band damping
+                                let damp = if (page_index == 0 && dx > 0.0) || (page_index + 1 >= page_count && dx < 0.0) { 0.3 } else { 1.0 };
+                                drag_offset_x.set(dx * damp);
+                            }
+                        }
+                    },
                     ontouchend: {
                         let mut next = go_next;
                         let mut prev = go_prev;
-                        move |e: TouchEvent| {
-                            if let Some(t) = e.touches_changed().first() {
-                                let p = t.client_coordinates();
-                                let (sx, sy) = *touch_start.peek();
-                                let (dx, dy) = (p.x - sx, p.y - sy);
-                                if dx.abs() > dy.abs() && dx.abs() > 48.0 {
-                                    if dx < 0.0 { next() } else { prev() }
+                        move |_| {
+                            if *drag_axis.peek() == 1 {
+                                let offset = *drag_offset_x.peek();
+                                if offset < -45.0 {
+                                    next();
+                                } else if offset > 45.0 {
+                                    prev();
                                 }
                             }
+                            drag_offset_x.set(0.0);
+                            is_dragging.set(false);
+                            drag_axis.set(0);
                         }
                     },
                     onclick: {
                         let mut next = go_next;
                         let mut prev = go_prev;
                         move |e: MouseEvent| {
-                            if *touch_moved.peek() { return; }
+                            if drag_offset_x.peek().abs() > 10.0 { return; }
                             let x = e.element_coordinates().x;
                             let w = *frame_w.peek();
-                            if x > w * 0.65 { next() } else if x < w * 0.35 { prev() }
+                            if x > w * 0.72 {
+                                next();
+                            } else if x < w * 0.28 {
+                                prev();
+                            } else {
+                                // Center tap toggles distraction-free fullscreen mode
+                                on_toggle_fullscreen.call(());
+                            }
                         }
                     },
                     div {
-                        class: "absolute inset-x-0 max-w-2xl mx-auto",
-                        style: "top: calc(env(safe-area-inset-top, 0px) + 4.75rem); bottom: calc(env(safe-area-inset-bottom, 0px) + 10.5rem); padding-left: {margin_horizontal}px; padding-right: {margin_horizontal}px;",
+                        class: "absolute inset-x-0 max-w-2xl mx-auto overflow-y-auto overscroll-y-contain",
+                        style: "top: {paged_top_padding}; bottom: {paged_bottom_padding}; padding-left: {margin_horizontal}px; padding-right: {margin_horizontal}px; -webkit-overflow-scrolling: touch; transition: top 300ms ease, bottom 300ms ease;",
                         div {
-                            class: "baca-page-content chapter-content select-text transition-transform duration-300 ease-out",
+                            class: "baca-page-content chapter-content select-text",
                             style: "{page_style}",
                             dangerous_inner_html: "{rendered}",
                         }
@@ -309,46 +423,21 @@ pub fn ReaderCanvas(
                     id: "baca-scroll-container",
                     class: "w-full h-full overflow-y-auto overscroll-y-contain select-text",
                     style: "touch-action: pan-y; -webkit-overflow-scrolling: touch;",
+                    onclick: move |e: MouseEvent| {
+                        let x = e.element_coordinates().x;
+                        let w = e.client_coordinates().x;
+                        let _ = (x, w);
+                    },
                     div {
-                        class: "max-w-2xl mx-auto space-y-6",
-                        style: "padding-top: max(calc(env(safe-area-inset-top, 0px) + 5rem), 5.5rem); padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 11rem), 12rem); padding-left: {margin_horizontal}px; padding-right: {margin_horizontal}px;",
+                        class: "max-w-2xl mx-auto space-y-6 transition-all duration-300",
+                        style: "padding-top: {scroll_top_padding}; padding-bottom: {scroll_bottom_padding}; padding-left: {margin_horizontal}px; padding-right: {margin_horizontal}px;",
 
-                        if current_chapter > 0 {
+                        // Clean Page Title without "BAB" prefix
+                        if let Some(ch) = &current_ch {
                             div {
-                                class: "text-center pt-2 pb-4 select-none",
-                                button {
-                                    class: "text-xs font-sans opacity-60 hover:opacity-100 apple-tap transition-opacity inline-flex items-center gap-1",
-                                    style: "color: {theme.text_secondary()};",
-                                    onclick: {
-                                        let on_ch = on_change_chapter;
-                                        move |_| {
-                                            landing_last.set(true);
-                                            on_ch.call(current_chapter - 1);
-                                        }
-                                    },
-                                    svg {
-                                        class: "w-3.5 h-3.5",
-                                        view_box: "0 0 24 24",
-                                        fill: "none",
-                                        stroke: "currentColor",
-                                        stroke_width: "2",
-                                        polyline { points: "15 18 9 12 15 6" }
-                                    }
-                                    span { "Bab Sebelumnya" }
-                                }
-                            }
-                        }
-
-                        div {
-                            class: "text-center mb-8 select-none",
-                            span {
-                                class: "font-sans text-[11px] uppercase tracking-[0.25em] font-semibold opacity-60",
-                                style: "color: {theme.text_secondary()};",
-                                "BAB {current_chapter + 1} DARI {total_chapters}"
-                            }
-                            if let Some(ch) = &current_ch {
+                                class: "text-center mb-8 select-none",
                                 h1 {
-                                    class: "font-serif text-[28px] sm:text-[34px] font-normal tracking-tight text-center mt-2 leading-[1.2]",
+                                    class: "font-serif text-[26px] sm:text-[32px] font-normal tracking-tight text-center mt-2 leading-[1.2]",
                                     style: "color: {theme.text_primary()};",
                                     "{ch.title}"
                                 }
@@ -360,35 +449,49 @@ pub fn ReaderCanvas(
                             dangerous_inner_html: "{rendered}",
                         }
 
-                        div {
-                            class: "pt-16 pb-8 flex flex-col items-center justify-center gap-3 select-none",
-                            if current_chapter + 1 < total_chapters {
-                                button {
-                                    class: "px-6 py-3 rounded-full text-xs font-sans font-medium border shadow-sm apple-tap transition-all hover:scale-105 active:scale-95 flex items-center gap-2",
-                                    style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
-                                    onclick: {
-                                        let on_ch = on_change_chapter;
-                                        move |_| on_ch.call(current_chapter + 1)
-                                    },
-                                    span { "Lanjut ke Bab {current_chapter + 2}" }
-                                    svg {
-                                        class: "w-4 h-4",
-                                        view_box: "0 0 24 24",
-                                        fill: "none",
-                                        stroke: "currentColor",
-                                        stroke_width: "2",
-                                        polyline { points: "9 18 15 12 9 6" }
-                                    }
-                                }
-                            } else {
-                                div {
-                                    class: "py-8 text-center text-xs font-sans opacity-40 tracking-wider uppercase",
-                                    "Akhir dari Buku Ini"
-                                }
+                        // Auto-advance sentinel at bottom (No manual button)
+                        if current_chapter + 1 < total_chapters {
+                            div {
+                                id: "baca-scroll-sentinel",
+                                class: "py-12 flex flex-col items-center justify-center opacity-40 select-none",
+                                style: "color: {theme.text_secondary()};",
+                                span { class: "font-sans text-xs tracking-wider", "Lanjut menggulir untuk bab berikutnya..." }
+                            }
+                        } else {
+                            div {
+                                class: "py-16 text-center text-xs font-sans opacity-40 tracking-wider uppercase",
+                                "Akhir dari Buku Ini"
                             }
                         }
                     }
                 }
+            }
+
+            // Hidden Triggers for Scroll Mode Auto-Navigation
+            button {
+                id: "baca-auto-next-btn",
+                class: "hidden",
+                onclick: {
+                    let on_ch = on_change_chapter;
+                    move |_| {
+                        if current_chapter + 1 < total_chapters {
+                            on_ch.call(current_chapter + 1);
+                        }
+                    }
+                },
+            }
+            button {
+                id: "baca-auto-prev-btn",
+                class: "hidden",
+                onclick: {
+                    let on_ch = on_change_chapter;
+                    move |_| {
+                        if current_chapter > 0 {
+                            landing_last.set(true);
+                            on_ch.call(current_chapter - 1);
+                        }
+                    }
+                },
             }
 
             input {

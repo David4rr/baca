@@ -184,13 +184,11 @@ button, a, input, select {
     word-break: break-word;
 }
 
-.chapter-content img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 1rem;
-    margin: 2.5rem auto;
-    display: block;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+.chapter-content img,
+.chapter-content svg,
+.chapter-content image,
+.chapter-content figure {
+    display: none !important;
 }
 
 .chapter-content h1, 
