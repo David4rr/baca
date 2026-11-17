@@ -224,14 +224,19 @@ button, a, input, select {
 }
 
 /* Paginated reader: keep blocks intact within a column. */
-#baca-page-content {
+#baca-page-content,
+.baca-page-content {
     column-fill: auto;
+    column-width: var(--baca-col-w, 100%);
     orphans: 2;
     widows: 2;
 }
 #baca-page-content img,
 #baca-page-content pre,
-#baca-page-content blockquote {
+#baca-page-content blockquote,
+.baca-page-content img,
+.baca-page-content pre,
+.baca-page-content blockquote {
     break-inside: avoid;
 }
 

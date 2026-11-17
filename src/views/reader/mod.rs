@@ -127,6 +127,7 @@ pub fn ReaderView(
         }
     };
     let total_chapters = epub_book.chapters.len();
+    let all_chapters = epub_book.chapters.clone();
     let current_ch = epub_book.chapters.get(current_chapter).cloned();
     let chapter_title = current_ch.as_ref().map(|c| c.title.clone());
     let local_fraction = *fraction.read();
@@ -182,6 +183,7 @@ pub fn ReaderView(
 
             ReaderCanvas {
                 current_ch: current_ch,
+                all_chapters: all_chapters,
                 current_chapter: current_chapter,
                 total_chapters: total_chapters,
                 font_family_css: font_family_css,
@@ -221,7 +223,19 @@ pub fn ReaderView(
                 is_fullscreen: fullscreen_val,
                 chapter_title: chapter_title,
                 on_change_theme: move |t| on_change_theme.call(t),
-                on_seek: move |ch| on_change_chapter.call(ch),
+                on_seek: move |ch| {
+                    if cur_mode == ReadingMode::Scroll {
+                        let script = format!(
+                            "(() => {{
+                                const el = document.getElementById('baca-chapter-{}');
+                                if (el) el.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+                            }})();",
+                            ch
+                        );
+                        let _ = document::eval(&script);
+                    }
+                    on_change_chapter.call(ch);
+                },
             }
         }
     }
