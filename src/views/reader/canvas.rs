@@ -43,16 +43,23 @@ const BIND_SCRIPT: &str = r#"
       }
     });
   }
-  const el = document.getElementById('baca-vertical-pager');
-  if (el && !el.dataset.scrollBound) {
-    el.dataset.scrollBound = '1';
-    el.addEventListener('scroll', () => {
-      const vh = el.clientHeight || 1;
-      const p = Math.max(0, Math.round(el.scrollTop / vh));
-      const input = document.getElementById('baca-scroll-sync');
-      if (input && input.value !== String(p)) {
-        input.value = String(p);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
+  const scrollEl = document.getElementById('baca-scroll-container');
+  if (scrollEl && !scrollEl.dataset.scrollBound) {
+    scrollEl.dataset.scrollBound = '1';
+    let ticking = false;
+    scrollEl.addEventListener('scroll', () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const total = Math.max(1, scrollEl.scrollHeight - scrollEl.clientHeight);
+          const fraction = Math.min(1.0, Math.max(0.0, scrollEl.scrollTop / total));
+          const input = document.getElementById('baca-scroll-sync');
+          if (input) {
+            input.value = fraction.toFixed(4);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          ticking = false;
+        });
+        ticking = true;
       }
     }, { passive: true });
   }
@@ -84,10 +91,7 @@ pub fn ReaderCanvas(
     let mut measured = use_signal(|| false);
 
     let is_paged = reading_mode == ReadingMode::Paged;
-    let page_count = (*pages.read()).max(1);
     let page_index = *page.read();
-    let window_start = page_index.saturating_sub(1);
-    let window_end = (page_index + 1).min(page_count.saturating_sub(1));
 
     let rendered = current_ch
         .as_ref()
@@ -97,10 +101,12 @@ pub fn ReaderCanvas(
         })
         .unwrap_or_default();
 
-    // Reset paging when the chapter changes. `landing_last` is intentionally
-    // preserved: backwards navigation sets it before requesting the chapter.
+    // Reset pagination state when the chapter changes.
     use_effect(move || {
         let _ = current_chapter;
+        if !is_paged {
+            return;
+        }
         page.set(0);
         pages.set(1);
         measured.set(false);
@@ -111,15 +117,47 @@ pub fn ReaderCanvas(
         }
     });
 
-    // Measure how many viewport-height pages this chapter produces.
+    // In scroll mode, reset scroll position to top when advancing,
+    // or jump to bottom when navigating backwards (landing_last).
     use_effect(move || {
+        let _ = current_chapter;
+        if is_paged {
+            return;
+        }
+        let is_last = *landing_last.peek();
+        if is_last {
+            landing_last.set(false);
+            on_metrics.call((current_chapter, 1.0));
+        } else {
+            on_metrics.call((current_chapter, 0.0));
+        }
+        spawn(async move {
+            let script = if is_last {
+                "(() => {
+                    const el = document.getElementById('baca-scroll-container');
+                    if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight - el.clientHeight; });
+                })();"
+            } else {
+                "(() => {
+                    const el = document.getElementById('baca-scroll-container');
+                    if (el) el.scrollTop = 0;
+                })();"
+            };
+            let _ = document::eval(script);
+        });
+    });
+
+    // Measure how many viewport-height pages this chapter produces (Paged Mode only).
+    use_effect(move || {
+        if !is_paged {
+            return;
+        }
         let _ = current_chapter;
         let _ = font_size;
         let _ = line_height;
         let _ = font_family_css;
         let _ = margin_horizontal;
         let _ = highlight_keyword;
-        let _ = reading_mode;
         let _ = *resize_epoch.read();
         spawn(async move {
             let probe = document::eval(PROBE_SCRIPT);
@@ -130,7 +168,7 @@ pub fn ReaderCanvas(
                 }
                 measured.set(true);
                 let w = document::eval(
-                    "(() => { const el = document.getElementById('baca-vertical-pager') || document.getElementById('baca-page-frame'); dioxus.send(el ? el.clientWidth : 1); })();",
+                    "(() => { const el = document.getElementById('baca-page-frame'); dioxus.send(el ? el.clientWidth : 1); })();",
                 );
                 if let Ok(width) = w.join::<f64>().await {
                     frame_w.set(width.max(1.0));
@@ -139,8 +177,7 @@ pub fn ReaderCanvas(
         });
     });
 
-    // Bind native scroll position -> page signal for the vertical pager,
-    // and window resize -> re-measure.
+    // Bind scroll listener for continuous scroll mode & resize listener for window.
     use_effect(move || {
         let _ = reading_mode;
         spawn(async move {
@@ -148,30 +185,19 @@ pub fn ReaderCanvas(
         });
     });
 
-    // Jump to the previous chapter's last page when navigating backwards.
+    // Jump to the previous chapter's last page when navigating backwards in Paged mode.
     use_effect(move || {
-        if !*landing_last.peek() || *pages.read() <= 1 {
+        if !is_paged || !*landing_last.peek() || *pages.read() <= 1 {
             return;
         }
         landing_last.set(false);
-        if is_paged {
-            let last = *pages.peek() - 1;
-            page.set(last);
-            return;
-        }
-        spawn(async move {
-            let _ = document::eval(
-                "(() => {
-                    const el = document.getElementById('baca-vertical-pager');
-                    if (el) el.scrollTop = (el.scrollHeight - el.clientHeight);
-                })();",
-            );
-        });
+        let last = *pages.peek() - 1;
+        page.set(last);
     });
 
-    // Report progress for the scrubber and the database.
+    // Report progress for the scrubber in Paged mode.
     use_effect(move || {
-        if !*measured.read() {
+        if !is_paged || !*measured.read() {
             return;
         }
         let p = *page.read();
@@ -220,14 +246,14 @@ pub fn ReaderCanvas(
 
     rsx! {
         main {
-            class: "reading-canvas relative w-full flex flex-col",
+            class: "reading-canvas relative w-full h-[100svh] flex flex-col overflow-hidden",
             style: "font-family: {font_family_css}; font-size: {font_size}px; line-height: {line_height};",
 
             if is_paged {
                 div {
                     id: "baca-page-frame",
-                    class: "relative w-full overflow-hidden",
-                    style: "height: 100svh; touch-action: pan-y;",
+                    class: "relative w-full h-full overflow-hidden",
+                    style: "touch-action: pan-y;",
                     onwheel: {
                         let mut next = go_next;
                         let mut prev = go_prev;
@@ -280,60 +306,84 @@ pub fn ReaderCanvas(
                 }
             } else {
                 div {
-                    id: "baca-vertical-pager",
-                    class: "w-full overflow-y-auto overscroll-contain",
-                    style: "height: 100svh; touch-action: pan-y;",
-                    ontouchstart: move |e: TouchEvent| {
-                        if let Some(t) = e.touches().first() {
-                            let p = t.client_coordinates();
-                            touch_start.set((p.x, p.y));
-                            touch_moved.set(false);
-                        }
-                    },
-                    ontouchmove: move |_| touch_moved.set(true),
-                    ontouchend: {
-                        let mut next = go_next;
-                        let mut prev = go_prev;
-                        move |e: TouchEvent| {
-                            let changed = e.touches_changed();
-                            let Some(t) = changed.first() else { return };
-                            let p = t.client_coordinates();
-                            let (sx, sy) = *touch_start.peek();
-                            let (dx, dy) = (p.x - sx, p.y - sy);
-                            if dx.abs() > dy.abs() && dx.abs() > 48.0 {
-                                if dx < 0.0 { next() } else { prev() }
-                                return;
-                            }
-                            let last = (*pages.peek()).saturating_sub(1);
-                            if *page.peek() == last && dy < -60.0 { next(); }
-                            else if *page.peek() == 0 && dy > 60.0 { prev(); }
-                        }
-                    },
-                    onwheel: {
-                        let mut next = go_next;
-                        let mut prev = go_prev;
-                        move |e: WheelEvent| {
-                            let dy = e.delta().strip_units().y;
-                            let last = (*pages.peek()).saturating_sub(1);
-                            if *page.peek() == last && dy > 0.0 { next(); }
-                            else if *page.peek() == 0 && dy < 0.0 { prev(); }
-                        }
-                    },
+                    id: "baca-scroll-container",
+                    class: "w-full h-full overflow-y-auto overscroll-y-contain select-text",
+                    style: "touch-action: pan-y; -webkit-overflow-scrolling: touch;",
                     div {
-                        style: "height: calc({page_count} * 100svh); position: relative;",
-                        for i in window_start..=window_end {
+                        class: "max-w-2xl mx-auto space-y-6",
+                        style: "padding-top: max(calc(env(safe-area-inset-top, 0px) + 5rem), 5.5rem); padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 11rem), 12rem); padding-left: {margin_horizontal}px; padding-right: {margin_horizontal}px;",
+
+                        if current_chapter > 0 {
                             div {
-                                key: "{i}",
-                                class: "absolute inset-x-0 w-full overflow-hidden",
-                                style: "top: calc({i} * 100svh); height: 100svh;",
-                                div {
-                                    class: "absolute inset-x-0 max-w-2xl mx-auto",
-                                    style: "top: calc(env(safe-area-inset-top, 0px) + 4.75rem); bottom: calc(env(safe-area-inset-bottom, 0px) + 10.5rem); padding-left: {margin_horizontal}px; padding-right: {margin_horizontal}px;",
-                                    div {
-                                        class: "baca-page-content chapter-content select-text",
-                                        style: "height: 100%; column-gap: 3rem; column-fill: auto; column-width: var(--baca-col-w, 40rem); transform: translateX(calc(-{i} * (100% + 3rem)));",
-                                        dangerous_inner_html: "{rendered}",
+                                class: "text-center pt-2 pb-4 select-none",
+                                button {
+                                    class: "text-xs font-sans opacity-60 hover:opacity-100 apple-tap transition-opacity inline-flex items-center gap-1",
+                                    style: "color: {theme.text_secondary()};",
+                                    onclick: {
+                                        let on_ch = on_change_chapter;
+                                        move |_| {
+                                            landing_last.set(true);
+                                            on_ch.call(current_chapter - 1);
+                                        }
+                                    },
+                                    svg {
+                                        class: "w-3.5 h-3.5",
+                                        view_box: "0 0 24 24",
+                                        fill: "none",
+                                        stroke: "currentColor",
+                                        stroke_width: "2",
+                                        polyline { points: "15 18 9 12 15 6" }
                                     }
+                                    span { "Bab Sebelumnya" }
+                                }
+                            }
+                        }
+
+                        div {
+                            class: "text-center mb-8 select-none",
+                            span {
+                                class: "font-sans text-[11px] uppercase tracking-[0.25em] font-semibold opacity-60",
+                                style: "color: {theme.text_secondary()};",
+                                "BAB {current_chapter + 1} DARI {total_chapters}"
+                            }
+                            if let Some(ch) = &current_ch {
+                                h1 {
+                                    class: "font-serif text-[28px] sm:text-[34px] font-normal tracking-tight text-center mt-2 leading-[1.2]",
+                                    style: "color: {theme.text_primary()};",
+                                    "{ch.title}"
+                                }
+                            }
+                        }
+
+                        div {
+                            class: "chapter-content select-text leading-relaxed text-justify",
+                            dangerous_inner_html: "{rendered}",
+                        }
+
+                        div {
+                            class: "pt-16 pb-8 flex flex-col items-center justify-center gap-3 select-none",
+                            if current_chapter + 1 < total_chapters {
+                                button {
+                                    class: "px-6 py-3 rounded-full text-xs font-sans font-medium border shadow-sm apple-tap transition-all hover:scale-105 active:scale-95 flex items-center gap-2",
+                                    style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                                    onclick: {
+                                        let on_ch = on_change_chapter;
+                                        move |_| on_ch.call(current_chapter + 1)
+                                    },
+                                    span { "Lanjut ke Bab {current_chapter + 2}" }
+                                    svg {
+                                        class: "w-4 h-4",
+                                        view_box: "0 0 24 24",
+                                        fill: "none",
+                                        stroke: "currentColor",
+                                        stroke_width: "2",
+                                        polyline { points: "9 18 15 12 9 6" }
+                                    }
+                                }
+                            } else {
+                                div {
+                                    class: "py-8 text-center text-xs font-sans opacity-40 tracking-wider uppercase",
+                                    "Akhir dari Buku Ini"
                                 }
                             }
                         }
@@ -346,10 +396,9 @@ pub fn ReaderCanvas(
                 r#type: "text",
                 style: "display: none;",
                 oninput: move |e| {
-                    if let Ok(p) = e.value().parse::<usize>() {
-                        let clamped = p.min((*pages.peek()).saturating_sub(1));
-                        if *page.peek() != clamped {
-                            page.set(clamped);
+                    if !is_paged {
+                        if let Ok(f) = e.value().parse::<f32>() {
+                            on_metrics.call((current_chapter, f));
                         }
                     }
                 },
