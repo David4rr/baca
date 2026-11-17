@@ -57,7 +57,7 @@ pub fn ExploreView(
         ("Austen", "jane austen"),
     ];
 
-    let mut search_for_header = search_fn.clone();
+    let search_for_header = search_fn;
 
     rsx! {
         div {
@@ -68,7 +68,7 @@ pub fn ExploreView(
                 search_query: search_query.read().clone(),
                 theme: theme,
                 on_back: move |_| on_back.call(()),
-                on_search: move |q| search_for_header(q),
+                on_search: search_for_header,
             }
 
             // 2. Symmetrical Category Pills
@@ -78,7 +78,7 @@ pub fn ExploreView(
                     {
                         let q_str = q.to_string();
                         let is_active = *search_query.read() == q_str;
-                        let mut search_cat = search_fn.clone();
+                        let mut search_cat = search_fn;
                         rsx! {
                             button {
                                 class: "px-3.5 py-1.5 rounded-full text-xs font-sans font-medium whitespace-nowrap apple-tap transition-all border",
@@ -152,8 +152,8 @@ pub fn ExploreView(
                                     || (!clean_id.is_empty() && b.file_path.contains(&clean_id))
                                     || b.id == id
                             });
-                            let on_imp = on_import_book.clone();
-                            let on_det = on_select_detail.clone();
+                            let on_imp = on_import_book;
+                            let on_det = on_select_detail;
                             rsx! {
                                 ExploreBookItem {
                                     key: "{id}",

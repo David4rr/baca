@@ -14,7 +14,7 @@ pub fn ConfirmDeleteModal(
             class: "fixed inset-0 z-50 bg-black/40 backdrop-blur-sm animate-fade-in flex items-center justify-center p-4",
             onclick: move |_| on_cancel.call(()),
             div {
-                class: "w-full max-w-sm rounded-[24px] border p-6 shadow-2xl flex flex-col gap-4 animate-slide-up select-none",
+                class: "w-full max-w-sm rounded-[24px] border p-6 shadow-lg flex flex-col gap-4 animate-slide-up select-none",
                 style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
                 onclick: |e| e.stop_propagation(),
 

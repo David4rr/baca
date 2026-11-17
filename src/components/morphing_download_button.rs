@@ -1,6 +1,5 @@
 use dioxus::prelude::*;
 use crate::db::models::Book;
-use crate::db::Database;
 use crate::engine::archive::{download_format_file, ArchiveBook};
 use crate::theme::ThemeMode;
 
@@ -25,6 +24,7 @@ pub fn MorphingDownloadButton(
 
     let has_epub = book.has_epub;
     let has_pdf = book.has_pdf;
+    let has_any = has_epub || has_pdf;
     let book_arc = std::sync::Arc::new(book);
 
     let run_download = {
@@ -45,7 +45,6 @@ pub fn MorphingDownloadButton(
                 let res = download_format_file(&b, &fmt_str, move |pct| { let _ = tx.send(pct); }).await;
                 match res {
                     Ok(new_book) => {
-                        let _ = Database::init().map(|db| db.insert_or_update_book(&new_book));
                         state.set(MorphState::Success);
                         on_imported.call(new_book);
                     }
@@ -61,6 +60,13 @@ pub fn MorphingDownloadButton(
     rsx! {
         div { class: "relative inline-flex items-center select-none",
             match state.read().clone() {
+                MorphState::Idle if !has_any => rsx! {
+                    div {
+                        class: "h-9 px-3.5 rounded-full flex items-center gap-1.5 border text-xs font-sans opacity-60",
+                        style: "border-color: {theme.border_color()}; color: {theme.text_secondary()};",
+                        "Format tidak tersedia"
+                    }
+                },
                 MorphState::Idle => rsx! {
                     button {
                         class: "h-9 px-3.5 rounded-full font-sans text-xs font-semibold flex items-center gap-1.5 shadow-sm apple-tap transition-all hover:opacity-90",
@@ -83,14 +89,16 @@ pub fn MorphingDownloadButton(
                     // True Apple Floating Dropdown Menu
                     if *is_dropdown_open.read() {
                         div {
-                            class: "absolute right-0 top-full mt-2 z-40 w-64 max-w-[calc(100vw-2.5rem)] rounded-2xl p-2.5 shadow-2xl border backdrop-blur-xl animate-spring-pop flex flex-col gap-1.5",
+                            class: "absolute right-0 top-full mt-2 z-40 w-64 max-w-[calc(100vw-2.5rem)] rounded-2xl p-2.5 shadow-lg border backdrop-blur-xl animate-spring-pop flex flex-col gap-1.5",
                             style: "background-color: {theme.surface_color()}EE; border-color: {theme.border_color()};",
                             onclick: |e| e.stop_propagation(),
 
                             div { class: "flex items-center justify-between px-2 pt-1 pb-1.5 border-b", style: "border-color: {theme.border_color()};",
                                 span { class: "text-[10px] font-sans font-bold uppercase tracking-wider opacity-50", "Pilih Format Buku" }
                                 button {
-                                    class: "w-5 h-5 rounded-full flex items-center justify-center opacity-50 hover:opacity-100",
+                                    class: "w-7 h-7 rounded-full flex items-center justify-center opacity-50 hover:opacity-100",
+                                    title: "Tutup pilihan format",
+                                    aria_label: "Tutup pilihan format",
                                     onclick: move |_| is_dropdown_open.set(false),
                                     svg { class: "w-3 h-3", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
                                         line { x1: "18", y1: "6", x2: "6", y2: "18" }
@@ -147,7 +155,7 @@ pub fn MorphingDownloadButton(
                 },
                 MorphState::Success => rsx! {
                     div {
-                        class: "h-9 px-3.5 rounded-full flex items-center gap-1.5 border shadow-xs animate-spring-pop",
+                        class: "h-9 px-3.5 rounded-full flex items-center gap-1.5 border shadow-sm animate-spring-pop",
                         style: "background-color: #10B98115; border-color: #10B98140; color: #10B981;",
                         svg { class: "w-3.5 h-3.5", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5", stroke_linecap: "round", stroke_linejoin: "round", polyline { points: "20 6 9 17 4 12" } }
                         span { class: "text-xs font-sans font-semibold", "Tersimpan" }
@@ -155,7 +163,7 @@ pub fn MorphingDownloadButton(
                 },
                 MorphState::Failed(err) => rsx! {
                     button {
-                        class: "h-9 px-3 rounded-full flex items-center gap-1.5 border shadow-xs animate-shake",
+                        class: "h-9 px-3 rounded-full flex items-center gap-1.5 border shadow-sm animate-shake",
                         style: "background-color: #EF444415; border-color: #EF444440; color: #EF4444;",
                         title: "{err}",
                         onclick: move |e| { e.stop_propagation(); state.set(MorphState::Idle); },

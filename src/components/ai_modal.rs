@@ -12,14 +12,27 @@ pub fn AiExplanationModal(
     on_close: EventHandler<()>,
     on_save_key: EventHandler<String>,
 ) -> Element {
-    if !is_open { return rsx! {}; }
-
     let mut query = use_signal(|| initial_text.clone());
     let mut explanation = use_signal(|| None::<String>);
     let mut is_loading = use_signal(|| false);
     let mut error_msg = use_signal(|| None::<String>);
     let mut key_input = use_signal(|| api_key.clone().unwrap_or_default());
-    let mut is_editing_key = use_signal(|| api_key.as_ref().map_or(true, |k| k.trim().is_empty()));
+    let mut is_editing_key = use_signal(|| api_key.as_ref().is_none_or(|k| k.trim().is_empty()));
+
+    use_effect(use_reactive(&is_open, move |open| {
+        if open {
+            query.set(initial_text.clone());
+            explanation.set(None);
+            error_msg.set(None);
+            is_loading.set(false);
+            key_input.set(api_key.clone().unwrap_or_default());
+            is_editing_key.set(api_key.as_ref().is_none_or(|k| k.trim().is_empty()));
+        }
+    }));
+
+    if !is_open {
+        return rsx! {};
+    }
 
     let mut do_ask = {
         let model_str = model.clone().unwrap_or_else(|| "gemini-2.5-flash".to_string());
@@ -51,8 +64,15 @@ pub fn AiExplanationModal(
             onclick: move |_| on_close.call(()),
 
             div {
-                class: "w-full max-w-lg max-h-[85vh] rounded-[28px] border shadow-2xl flex flex-col overflow-hidden animate-slide-up",
+                class: "w-full max-w-lg max-h-[85vh] rounded-[28px] border shadow-lg flex flex-col overflow-hidden animate-spring-pop",
                 style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                role: "dialog",
+                aria_modal: "true",
+                aria_label: "Asisten AI",
+                tabindex: "0",
+                onkeydown: move |e: KeyboardEvent| {
+                    if e.key() == Key::Escape { on_close.call(()); }
+                },
                 onclick: move |e| e.stop_propagation(),
 
                 // Header
@@ -71,8 +91,10 @@ pub fn AiExplanationModal(
                         }
                     }
                     button {
-                        class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-60 hover:opacity-100",
+                        class: "w-10 h-10 rounded-full flex items-center justify-center apple-tap opacity-60 hover:opacity-100",
                         style: "background-color: {theme.surface_subtle()};",
+                        title: "Tutup",
+                        aria_label: "Tutup asisten AI",
                         onclick: move |_| on_close.call(()),
                         svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
                             line { x1: "18", y1: "6", x2: "6", y2: "18" }

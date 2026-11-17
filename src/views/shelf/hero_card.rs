@@ -12,7 +12,8 @@ pub fn HeroCard(
     let book_click = book.clone();
     let book_delete = book.clone();
     let progress = (book.progress_percent * 100.0).round() as u32;
-    let est_minutes_left = ((1.0 - book.progress_percent) * 35.0).max(3.0).round() as u32;
+    let remaining_chapters = book.total_chapters.saturating_sub(book.current_chapter).max(1);
+    let est_minutes_left = (remaining_chapters * 4).max(1);
 
     rsx! {
         div {
@@ -26,9 +27,20 @@ pub fn HeroCard(
                 // Book Cover with Realistic Depth
                 div {
                     class: "book-cover-realistic w-20 sm:w-24 aspect-[2/3] rounded-xl flex-shrink-0 cursor-pointer apple-tap",
+                    role: "button",
+                    tabindex: "0",
+                    aria_label: "Buka buku {book.title}",
                     onclick: {
                         let b = book_click.clone();
                         move |_| on_select_book.call(b.clone())
+                    },
+                    onkeydown: {
+                        let b = book_click.clone();
+                        move |e: KeyboardEvent| {
+                            if e.key() == Key::Enter || e.key() == Key::Character(" ".to_string()) {
+                                on_select_book.call(b.clone());
+                            }
+                        }
                     },
                     if let Some(cover) = &book.cover_image {
                         img {
@@ -64,9 +76,10 @@ pub fn HeroCard(
 
                             // Direct Delete Button (eliminates redundant menu on last read)
                             button {
-                                class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap transition-all opacity-60 hover:opacity-100 hover:text-rose-500 hover:bg-rose-500/10 flex-shrink-0",
-                                style: "width: 32px; height: 32px; min-width: 32px; min-height: 32px; background-color: {theme.surface_subtle()}; color: {theme.text_secondary()};",
+                                class: "w-10 h-10 rounded-full flex items-center justify-center apple-tap transition-all opacity-70 hover:opacity-100 hover:text-rose-500 hover:bg-rose-500/10 flex-shrink-0",
+                                style: "width: 40px; height: 40px; min-width: 40px; min-height: 40px; background-color: {theme.surface_subtle()}; color: {theme.text_secondary()};",
                                 title: "Hapus Buku dari Rak",
+                                aria_label: "Hapus buku dari rak",
                                 onclick: {
                                     let id = book_delete.id.clone();
                                     move |e: MouseEvent| {
@@ -103,7 +116,7 @@ pub fn HeroCard(
                             class: "flex items-center justify-between text-[12px] font-sans font-medium mb-1.5",
                             span {
                                 style: "color: {theme.text_muted()};",
-                                if progress == 100 { "Selesai dibaca" } else { "{est_minutes_left} min left in chapter" }
+                                if progress >= 100 { "Selesai dibaca" } else { "± {est_minutes_left} menit tersisa" }
                             }
                             span {
                                 class: "font-semibold",

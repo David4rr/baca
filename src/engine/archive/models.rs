@@ -71,9 +71,5 @@ pub fn detect_formats(val: Option<&serde_json::Value>) -> (bool, bool) {
             }
         }
     }
-    if !has_epub && !has_pdf {
-        has_epub = true;
-        has_pdf = true;
-    }
     (has_epub, has_pdf)
 }

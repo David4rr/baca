@@ -1,180 +1,385 @@
 use dioxus::prelude::*;
+use serde::Deserialize;
+
 use crate::engine::Chapter;
 use crate::theme::ThemeMode;
+
 use super::highlight::highlight_html;
 use super::top_bar::ReadingMode;
+
+#[derive(Deserialize)]
+struct PageProbe {
+    pages: usize,
+}
+
+const PROBE_SCRIPT: &str = r#"
+(() => {
+  const measure = () => {
+    const el = document.querySelector('.baca-page-content');
+    if (!el) { dioxus.send({ pages: 1 }); return; }
+    const w = el.clientWidth || 1;
+    document.documentElement.style.setProperty('--baca-col-w', w + 'px');
+    const gap = parseFloat(getComputedStyle(el).columnGap) || 48;
+    const pages = Math.max(1, Math.round((el.scrollWidth + gap) / (w + gap)));
+    dioxus.send({ pages: pages });
+  };
+  const images = Array.from(document.images).map(img => img.decode ? img.decode().catch(() => {}) : Promise.resolve());
+  const fonts = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+  const timeout = new Promise(resolve => setTimeout(resolve, 1500));
+  Promise.race([Promise.all([fonts, ...images]), timeout])
+    .then(() => requestAnimationFrame(() => requestAnimationFrame(measure)));
+})();
+"#;
+
+const BIND_SCRIPT: &str = r#"
+(() => {
+  if (!window.__bacaResizeBound) {
+    window.__bacaResizeBound = true;
+    window.addEventListener('resize', () => {
+      const input = document.getElementById('baca-resize-sync');
+      if (input) {
+        input.value = String(Date.now());
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+  }
+  const el = document.getElementById('baca-vertical-pager');
+  if (el && !el.dataset.scrollBound) {
+    el.dataset.scrollBound = '1';
+    el.addEventListener('scroll', () => {
+      const vh = el.clientHeight || 1;
+      const p = Math.max(0, Math.round(el.scrollTop / vh));
+      const input = document.getElementById('baca-scroll-sync');
+      if (input && input.value !== String(p)) {
+        input.value = String(p);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }, { passive: true });
+  }
+})();
+"#;
 
 #[component]
 pub fn ReaderCanvas(
     current_ch: Option<Chapter>,
-    next_ch: Option<Chapter>,
     current_chapter: usize,
     total_chapters: usize,
     font_family_css: String,
     font_size: u32,
     line_height: f32,
+    margin_horizontal: u32,
     theme: ThemeMode,
     reading_mode: ReadingMode,
     highlight_keyword: Option<String>,
     on_change_chapter: EventHandler<usize>,
+    on_metrics: EventHandler<(usize, f32)>,
     on_clear_highlight: EventHandler<()>,
 ) -> Element {
-    let mut touch_start_x = use_signal(|| 0.0f64);
-    let mut touch_start_y = use_signal(|| 0.0f64);
-    let mut touch_last_x = use_signal(|| 0.0f64);
-    let mut touch_last_y = use_signal(|| 0.0f64);
-    let mut current_page = use_signal(|| 0usize);
-
-    let mut last_ch = use_signal(|| current_chapter);
-    if *last_ch.read() != current_chapter {
-        *last_ch.write() = current_chapter;
-        current_page.set(0);
-    }
+    let mut pages = use_signal(|| 1usize);
+    let mut page = use_signal(|| 0usize);
+    let mut frame_w = use_signal(|| 1.0f64);
+    let mut landing_last = use_signal(|| false);
+    let mut landing_for = use_signal(|| None::<usize>);
+    let mut resize_epoch = use_signal(|| 0u32);
+    let mut measured = use_signal(|| false);
 
     let is_paged = reading_mode == ReadingMode::Paged;
-    let est_pages = current_ch.as_ref().map(|c| {
-        let wc = c.html_content.split_whitespace().count();
-        ((wc as f32 / 240.0).ceil() as usize).max(1)
-    }).unwrap_or(1);
+    let page_count = (*pages.read()).max(1);
+    let page_index = *page.read();
+    let window_start = page_index.saturating_sub(1);
+    let window_end = (page_index + 1).min(page_count.saturating_sub(1));
 
-    let mut go_next = {
-        let on_change = on_change_chapter.clone();
+    let rendered = current_ch
+        .as_ref()
+        .map(|ch| match &highlight_keyword {
+            Some(kw) if kw.trim().len() >= 2 => highlight_html(&ch.html_content, kw.trim()),
+            _ => ch.html_content.clone(),
+        })
+        .unwrap_or_default();
+
+    // Reset paging when the chapter changes. `landing_last` is intentionally
+    // preserved: backwards navigation sets it before requesting the chapter.
+    use_effect(move || {
+        let _ = current_chapter;
+        page.set(0);
+        pages.set(1);
+        measured.set(false);
+        let landing = *landing_for.peek() == Some(current_chapter);
+        landing_last.set(landing);
+        if landing {
+            landing_for.set(None);
+        }
+    });
+
+    // Measure how many viewport-height pages this chapter produces.
+    use_effect(move || {
+        let _ = current_chapter;
+        let _ = font_size;
+        let _ = line_height;
+        let _ = font_family_css;
+        let _ = margin_horizontal;
+        let _ = highlight_keyword;
+        let _ = reading_mode;
+        let _ = *resize_epoch.read();
+        spawn(async move {
+            let probe = document::eval(PROBE_SCRIPT);
+            if let Ok(p) = probe.join::<PageProbe>().await {
+                let clamped = p.pages.max(1);
+                if *pages.peek() != clamped {
+                    pages.set(clamped);
+                }
+                measured.set(true);
+                let w = document::eval(
+                    "(() => { const el = document.getElementById('baca-vertical-pager') || document.getElementById('baca-page-frame'); dioxus.send(el ? el.clientWidth : 1); })();",
+                );
+                if let Ok(width) = w.join::<f64>().await {
+                    frame_w.set(width.max(1.0));
+                }
+            }
+        });
+    });
+
+    // Bind native scroll position -> page signal for the vertical pager,
+    // and window resize -> re-measure.
+    use_effect(move || {
+        let _ = reading_mode;
+        spawn(async move {
+            let _ = document::eval(BIND_SCRIPT);
+        });
+    });
+
+    // Jump to the previous chapter's last page when navigating backwards.
+    use_effect(move || {
+        if !*landing_last.peek() || *pages.read() <= 1 {
+            return;
+        }
+        landing_last.set(false);
+        if is_paged {
+            let last = *pages.peek() - 1;
+            page.set(last);
+            return;
+        }
+        spawn(async move {
+            let _ = document::eval(
+                "(() => {
+                    const el = document.getElementById('baca-vertical-pager');
+                    if (el) el.scrollTop = (el.scrollHeight - el.clientHeight);
+                })();",
+            );
+        });
+    });
+
+    // Report progress for the scrubber and the database.
+    use_effect(move || {
+        if !*measured.read() {
+            return;
+        }
+        let p = *page.read();
+        let total = (*pages.read()).max(1);
+        let fraction = ((p + 1) as f32 / total as f32).clamp(0.0, 1.0);
+        on_metrics.call((current_chapter, fraction));
+    });
+
+    let go_next = {
+        let on_change = on_change_chapter;
         move || {
-            let p = *current_page.read();
-            if p + 1 < est_pages { current_page.set(p + 1); }
-            else if current_chapter + 1 < total_chapters { current_page.set(0); on_change.call(current_chapter + 1); }
+            let p = *page.peek();
+            let total = (*pages.peek()).max(1);
+            if p + 1 < total {
+                page.set(p + 1);
+            } else if current_chapter + 1 < total_chapters {
+                page.set(0);
+                landing_last.set(false);
+                on_change.call(current_chapter + 1);
+            }
         }
     };
 
-    let mut go_prev = {
-        let on_change = on_change_chapter.clone();
+    let go_prev = {
+        let on_change = on_change_chapter;
         move || {
-            let p = *current_page.read();
-            if p > 0 { current_page.set(p - 1); }
-            else if current_chapter > 0 { current_page.set(0); on_change.call(current_chapter - 1); }
+            let p = *page.peek();
+            if p > 0 {
+                page.set(p - 1);
+            } else if current_chapter > 0 {
+                landing_for.set(Some(current_chapter - 1));
+                landing_last.set(true);
+                on_change.call(current_chapter - 1);
+            }
         }
     };
 
-    let render_chapter = |ch: &Chapter| {
-        if let Some(kw) = &highlight_keyword {
-            let clean = kw.trim();
-            if clean.len() >= 2 { highlight_html(&ch.html_content, clean) } else { ch.html_content.clone() }
-        } else {
-            ch.html_content.clone()
-        }
-    };
+    let page_style = format!(
+        "height: 100%; column-gap: 3rem; column-fill: auto; \
+         transform: translateX(calc(-{} * (100% + 3rem)));",
+        page_index
+    );
 
-    let cur_rendered = current_ch.as_ref().map(&render_chapter).unwrap_or_default();
-    let next_rendered = next_ch.as_ref().map(&render_chapter);
+    let mut touch_start = use_signal(|| (0.0f64, 0.0f64));
+    let mut touch_moved = use_signal(|| false);
 
     rsx! {
         main {
-            class: "reading-canvas w-full max-w-2xl px-6 sm:px-8 pb-48 flex flex-col relative transition-all duration-300 animate-fade-in",
-            style: "font-family: {font_family_css}; font-size: {font_size}px; line-height: {line_height}; padding-top: max(calc(env(safe-area-inset-top, 0px) + 4.5rem), 5.5rem);",
-            ontouchstart: move |e: TouchEvent| {
-                if let Some(t) = e.touches().first() {
-                    let (x, y) = (t.client_coordinates().x, t.client_coordinates().y);
-                    touch_start_x.set(x); touch_start_y.set(y);
-                    touch_last_x.set(x); touch_last_y.set(y);
-                }
-            },
-            ontouchmove: move |e: TouchEvent| {
-                if let Some(t) = e.touches().first() {
-                    touch_last_x.set(t.client_coordinates().x); touch_last_y.set(t.client_coordinates().y);
-                }
-            },
-            ontouchend: move |_| {
-                if is_paged {
-                    let dx = *touch_last_x.read() - *touch_start_x.read();
-                    let dy = *touch_last_y.read() - *touch_start_y.read();
-                    if dy.abs() < 100.0 {
-                        if dx < -40.0 { go_next(); } else if dx > 40.0 { go_prev(); }
-                    }
-                }
-            },
+            class: "reading-canvas relative w-full flex flex-col",
+            style: "font-family: {font_family_css}; font-size: {font_size}px; line-height: {line_height};",
 
-            if let Some(ch) = current_ch {
+            if is_paged {
                 div {
-                    class: "chapter-content space-y-6 select-text",
-                    div { class: "text-center mb-2 select-none",
-                        span { class: "font-sans text-[11px] uppercase tracking-[0.25em] font-semibold opacity-60", style: "color: {theme.text_secondary()};",
-                            "BAB {current_chapter + 1} DARI {total_chapters}"
+                    id: "baca-page-frame",
+                    class: "relative w-full overflow-hidden",
+                    style: "height: 100svh; touch-action: pan-y;",
+                    onwheel: {
+                        let mut next = go_next;
+                        let mut prev = go_prev;
+                        move |e: WheelEvent| {
+                            let dy = e.delta().strip_units().y;
+                            if dy > 0.0 { next() } else if dy < 0.0 { prev() }
                         }
-                    }
-                    h1 { class: "font-serif text-[28px] sm:text-[34px] font-normal tracking-tight text-center mb-8 leading-[1.2]", style: "color: {theme.text_primary()};",
-                        "{ch.title}"
-                    }
-
-                    if is_paged {
+                    },
+                    ontouchstart: move |e: TouchEvent| {
+                        if let Some(t) = e.touches().first() {
+                            let p = t.client_coordinates();
+                            touch_start.set((p.x, p.y));
+                            touch_moved.set(false);
+                        }
+                    },
+                    ontouchmove: move |_| touch_moved.set(true),
+                    ontouchend: {
+                        let mut next = go_next;
+                        let mut prev = go_prev;
+                        move |e: TouchEvent| {
+                            if let Some(t) = e.touches_changed().first() {
+                                let p = t.client_coordinates();
+                                let (sx, sy) = *touch_start.peek();
+                                let (dx, dy) = (p.x - sx, p.y - sy);
+                                if dx.abs() > dy.abs() && dx.abs() > 48.0 {
+                                    if dx < 0.0 { next() } else { prev() }
+                                }
+                            }
+                        }
+                    },
+                    onclick: {
+                        let mut next = go_next;
+                        let mut prev = go_prev;
+                        move |e: MouseEvent| {
+                            if *touch_moved.peek() { return; }
+                            let x = e.element_coordinates().x;
+                            let w = *frame_w.peek();
+                            if x > w * 0.65 { next() } else if x < w * 0.35 { prev() }
+                        }
+                    },
+                    div {
+                        class: "absolute inset-x-0 max-w-2xl mx-auto",
+                        style: "top: calc(env(safe-area-inset-top, 0px) + 4.75rem); bottom: calc(env(safe-area-inset-bottom, 0px) + 10.5rem); padding-left: {margin_horizontal}px; padding-right: {margin_horizontal}px;",
                         div {
-                            class: "paged-container relative w-full overflow-hidden rounded-2xl cursor-pointer",
-                            style: "height: calc(100vh - 14rem); max-height: calc(100vh - 14rem);",
-                            onclick: move |e: MouseEvent| {
-                                let x = e.client_coordinates().x;
-                                let w = 600.0; // approximate center split
-                                if x > w * 0.65 { go_next(); } else if x < w * 0.35 { go_prev(); }
-                            },
-                            div {
-                                class: "prose max-w-none leading-relaxed text-justify transition-transform duration-300 ease-out",
-                                style: "column-width: 100%; column-gap: 3rem; column-fill: auto; height: 100%; transform: translateX(calc(-{current_page} * (100% + 3rem)));",
-                                dangerous_inner_html: "{cur_rendered}",
-                            }
-                        }
-                    } else {
-                        div { class: "prose max-w-none leading-relaxed text-justify", dangerous_inner_html: "{cur_rendered}" }
-
-                        // Seamless continuous scroll into next chapter (Zero loading delays)
-                        if let (Some(next), Some(next_html)) = (next_ch, next_rendered) {
-                            div { class: "pt-24 pb-8 text-center select-none",
-                                span { class: "font-sans text-[11px] uppercase tracking-[0.25em] font-semibold opacity-50",
-                                    "BAB {current_chapter + 2} DARI {total_chapters}"
-                                }
-                                h2 { class: "font-serif text-[26px] sm:text-[30px] font-normal tracking-tight text-center mt-2 leading-[1.2]",
-                                    "{next.title}"
-                                }
-                            }
-                            div { class: "prose max-w-none leading-relaxed text-justify", dangerous_inner_html: "{next_html}" }
-                        }
-                    }
-
-                    if let Some(kw) = &highlight_keyword {
-                        div { class: "pt-4 pb-2 select-none",
-                            button {
-                                class: "rounded-full px-3 py-1 text-xs font-sans font-medium flex items-center gap-1.5 border apple-tap shadow-xs",
-                                style: "background-color: #fef3c7; border-color: #f59e0b; color: #78350f;",
-                                onclick: move |_| on_clear_highlight.call(()),
-                                span { "Menyorot: \"{kw}\"" }
-                                svg { class: "w-3 h-3", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
-                                    line { x1: "18", y1: "6", x2: "6", y2: "18" }
-                                    line { x1: "6", y1: "6", x2: "18", y2: "18" }
-                                }
-                            }
+                            class: "baca-page-content chapter-content select-text transition-transform duration-300 ease-out",
+                            style: "{page_style}",
+                            dangerous_inner_html: "{rendered}",
                         }
                     }
                 }
             } else {
+                div {
+                    id: "baca-vertical-pager",
+                    class: "w-full overflow-y-auto overscroll-contain",
+                    style: "height: 100svh; touch-action: pan-y;",
+                    ontouchstart: move |e: TouchEvent| {
+                        if let Some(t) = e.touches().first() {
+                            let p = t.client_coordinates();
+                            touch_start.set((p.x, p.y));
+                            touch_moved.set(false);
+                        }
+                    },
+                    ontouchmove: move |_| touch_moved.set(true),
+                    ontouchend: {
+                        let mut next = go_next;
+                        let mut prev = go_prev;
+                        move |e: TouchEvent| {
+                            let changed = e.touches_changed();
+                            let Some(t) = changed.first() else { return };
+                            let p = t.client_coordinates();
+                            let (sx, sy) = *touch_start.peek();
+                            let (dx, dy) = (p.x - sx, p.y - sy);
+                            if dx.abs() > dy.abs() && dx.abs() > 48.0 {
+                                if dx < 0.0 { next() } else { prev() }
+                                return;
+                            }
+                            let last = (*pages.peek()).saturating_sub(1);
+                            if *page.peek() == last && dy < -60.0 { next(); }
+                            else if *page.peek() == 0 && dy > 60.0 { prev(); }
+                        }
+                    },
+                    onwheel: {
+                        let mut next = go_next;
+                        let mut prev = go_prev;
+                        move |e: WheelEvent| {
+                            let dy = e.delta().strip_units().y;
+                            let last = (*pages.peek()).saturating_sub(1);
+                            if *page.peek() == last && dy > 0.0 { next(); }
+                            else if *page.peek() == 0 && dy < 0.0 { prev(); }
+                        }
+                    },
+                    div {
+                        style: "height: calc({page_count} * 100svh); position: relative;",
+                        for i in window_start..=window_end {
+                            div {
+                                key: "{i}",
+                                class: "absolute inset-x-0 w-full overflow-hidden",
+                                style: "top: calc({i} * 100svh); height: 100svh;",
+                                div {
+                                    class: "absolute inset-x-0 max-w-2xl mx-auto",
+                                    style: "top: calc(env(safe-area-inset-top, 0px) + 4.75rem); bottom: calc(env(safe-area-inset-bottom, 0px) + 10.5rem); padding-left: {margin_horizontal}px; padding-right: {margin_horizontal}px;",
+                                    div {
+                                        class: "baca-page-content chapter-content select-text",
+                                        style: "height: 100%; column-gap: 3rem; column-fill: auto; column-width: var(--baca-col-w, 40rem); transform: translateX(calc(-{i} * (100% + 3rem)));",
+                                        dangerous_inner_html: "{rendered}",
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            input {
+                id: "baca-scroll-sync",
+                r#type: "text",
+                style: "display: none;",
+                oninput: move |e| {
+                    if let Ok(p) = e.value().parse::<usize>() {
+                        let clamped = p.min((*pages.peek()).saturating_sub(1));
+                        if *page.peek() != clamped {
+                            page.set(clamped);
+                        }
+                    }
+                },
+            }
+            input {
+                id: "baca-resize-sync",
+                r#type: "text",
+                style: "display: none;",
+                oninput: move |_| {
+                    let next = *resize_epoch.peek() + 1;
+                    resize_epoch.set(next);
+                },
+            }
+
+            if total_chapters == 0 {
                 div { class: "p-12 text-center opacity-60 font-sans text-sm", "Bab buku tidak dapat dimuat." }
             }
 
-            if is_paged {
-                div { class: "mt-4 text-center select-none font-sans text-xs opacity-60 tracking-wide",
-                    "Halaman {current_page + 1} dari {est_pages} • Bab {current_chapter + 1}"
-                }
-            } else if current_chapter + 2 < total_chapters {
-                div { class: "pt-16 pb-8 flex flex-col items-center justify-center select-none",
+            if let Some(kw) = &highlight_keyword {
+                div { class: "fixed left-1/2 -translate-x-1/2 bottom-40 z-20 select-none",
                     button {
-                        class: "px-5 py-2.5 rounded-full text-xs font-sans font-medium border shadow-sm apple-tap transition-all hover:scale-105",
-                        style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
-                        onclick: {
-                            let on_ch = on_change_chapter.clone();
-                            move |_| on_ch.call(current_chapter + 2)
-                        },
-                        "Lanjut ke Bab {current_chapter + 3}"
+                        class: "rounded-full px-3 py-1.5 text-xs font-sans font-medium flex items-center gap-1.5 border apple-tap shadow-md",
+                        style: "background-color: #fef3c7; border-color: #f59e0b; color: #78350f;",
+                        onclick: move |_| on_clear_highlight.call(()),
+                        span { "Menyorot: \"{kw}\"" }
+                        svg { class: "w-3 h-3", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
+                            line { x1: "18", y1: "6", x2: "6", y2: "18" }
+                            line { x1: "6", y1: "6", x2: "18", y2: "18" }
+                        }
                     }
-                }
-            } else {
-                div { class: "py-16 text-center select-none font-sans text-xs opacity-40 tracking-wider",
-                    "Akhir dari Buku Ini"
                 }
             }
         }

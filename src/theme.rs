@@ -9,7 +9,7 @@ pub enum ThemeMode {
 }
 
 impl ThemeMode {
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_name(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "light" => Self::Light,
             "amoled" => Self::Amoled,

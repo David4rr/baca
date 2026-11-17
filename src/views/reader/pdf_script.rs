@@ -1,54 +1,79 @@
-/// PDF.js initialization and rendering script for HTML5 Canvas.
-pub fn get_pdf_script(file_url: &str) -> String {
-    format!(r#"
-        (function() {{
-            const url = "{file_url}";
-            const canvas = document.getElementById('baca-pdf-canvas');
-            if (!canvas) return;
+const PDF_LIB: &str = include_str!("../../../assets/vendor/pdf.min.js");
+const PDF_WORKER: &str = include_str!("../../../assets/vendor/pdf.worker.min.js");
 
-            function initPdfJs() {{
-                if (typeof pdfjsLib === 'undefined') {{
-                    const s = document.createElement('script');
-                    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-                    s.onload = () => {{
-                        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                        loadPdf(url);
-                    }};
-                    s.onerror = () => {{
-                        const fallback = document.getElementById('baca-pdf-fallback');
-                        if (fallback) fallback.style.display = 'flex';
-                    }};
-                    document.head.appendChild(s);
-                }} else {{
-                    loadPdf(url);
-                }}
-            }}
+/// Boots the bundled PDF.js library and opens a local document. Runs once per
+/// reader mount through `document::eval`; no network access is involved.
+pub fn get_boot_script(pdf_base64: &str, initial_progress: f32) -> String {
+    let lib = serde_json::to_string(PDF_LIB).unwrap_or_else(|_| "''".to_string());
+    let worker = serde_json::to_string(PDF_WORKER).unwrap_or_else(|_| "''".to_string());
+    let data = serde_json::to_string(pdf_base64).unwrap_or_else(|_| "''".to_string());
+    let initial = initial_progress.clamp(0.0, 1.0);
 
-            function loadPdf(pdfUrl) {{
-                pdfjsLib.getDocument(pdfUrl).promise.then(pdf => {{
-                    window.__baca_pdf = pdf;
-                    window.__baca_total_pages = pdf.numPages;
-                    const elTotal = document.getElementById('baca-pdf-total-pages');
-                    if (elTotal) elTotal.innerText = pdf.numPages;
-                    window.__baca_render_pdf_page(1, 1.0);
-                }}).catch(() => {{
-                    const fallback = document.getElementById('baca-pdf-fallback');
-                    if (fallback) fallback.style.display = 'flex';
-                }});
-            }}
+    format!(
+        r#"
+(() => {{
+  const b64 = {data};
+  const fail = (msg) => {{
+    const input = document.getElementById('baca-pdf-error');
+    if (input) {{ input.value = msg; input.dispatchEvent(new Event('input', {{ bubbles: true }})); }}
+  }};
 
-            window.__baca_render_pdf_page = function(pageNum, scale) {{
-                if (!window.__baca_pdf) return;
-                window.__baca_pdf.getPage(pageNum).then(page => {{
-                    const viewport = page.getViewport({{ scale: scale || 1.2 }});
-                    const ctx = canvas.getContext('2d');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-                    page.render({{ canvasContext: ctx, viewport: viewport }});
-                }});
-            }};
+  if (!window.pdfjsLib) {{
+    const lib = document.createElement('script');
+    lib.textContent = {lib};
+    document.head.appendChild(lib);
+  }}
+  if (!window.pdfjsLib) {{ fail('Pustaka PDF tidak dapat dimuat'); return; }}
 
-            initPdfJs();
-        }})();
-    "#)
+  if (!window.__bacaPdfWorker) {{
+    const workerBlob = new Blob([{worker}], {{ type: 'application/javascript' }});
+    window.__bacaPdfWorker = URL.createObjectURL(workerBlob);
+  }}
+  pdfjsLib.GlobalWorkerOptions.workerSrc = window.__bacaPdfWorker;
+
+  const canvas = document.getElementById('baca-pdf-canvas');
+  if (!canvas) {{ fail('Kanvas PDF tidak tersedia'); return; }}
+
+  const totalInput = document.getElementById('baca-pdf-total');
+
+  window.__baca_pdf_render = function(pageNum, scale) {{
+    const pdf = window.__baca_pdf;
+    if (!pdf) return;
+    const page = Math.min(Math.max(1, pageNum), pdf.numPages);
+    const cur = document.getElementById('baca-pdf-current');
+    if (cur && cur.value !== String(page)) {{
+      cur.value = String(page);
+      cur.dispatchEvent(new Event('input', {{ bubbles: true }}));
+    }}
+    pdf.getPage(page).then(p => {{
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const viewport = p.getViewport({{ scale: (scale || 1.0) * dpr }});
+      const ctx = canvas.getContext('2d');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.width = '100%';
+      canvas.style.height = 'auto';
+      p.render({{ canvasContext: ctx, viewport: viewport }}).promise.catch(() => fail('Gagal menggambar halaman'));
+    }}).catch(() => fail('Halaman PDF tidak dapat dibuka'));
+  }};
+
+  const raw = atob(b64);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  window.__bacaPdfData = bytes;
+
+  const task = pdfjsLib.getDocument({{ data: bytes, isEvalSupported: false }});
+  task.promise.then(pdf => {{
+    window.__baca_pdf = pdf;
+    if (totalInput) {{
+      totalInput.value = String(pdf.numPages);
+      totalInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+    }}
+    const start = Math.max(1, Math.round({initial} * pdf.numPages));
+    window.__baca_pdf_render(start, 1.0);
+    window.__baca_pdf_start_page = start;
+  }}).catch(err => fail('Berkas PDF tidak dapat dibuka: ' + (err && err.message ? err.message : 'unknown')));
+}})();
+"#
+    )
 }

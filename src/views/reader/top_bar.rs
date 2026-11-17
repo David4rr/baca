@@ -47,6 +47,7 @@ pub fn ReaderTopBar(
                     class: "h-9 px-2.5 sm:px-3 rounded-full flex items-center gap-1.5 shadow-sm border apple-tap transition-all",
                     style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
                     title: if is_paged { "Mode Halaman Aktif (Ketuk untuk Mode Gulir)" } else { "Mode Gulir Aktif (Ketuk untuk Mode Halaman)" },
+                    aria_label: "Ubah mode baca",
                     onclick: move |_| on_toggle_mode.call(()),
                     if is_paged {
                         svg { class: "w-4 h-4 text-emerald-500", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2",
@@ -66,13 +67,14 @@ pub fn ReaderTopBar(
 
                 // Bookmark Toggle Button
                 button {
-                    class: "w-9 h-9 rounded-full flex items-center justify-center apple-tap transition-all",
+                    class: "w-10 h-10 rounded-full flex items-center justify-center apple-tap transition-all",
                     style: if is_bookmarked {
                         format!("color: {}; background-color: {}20;", theme.accent_color(), theme.accent_color())
                     } else {
                         format!("color: {}; opacity: 0.7;", theme.text_primary())
                     },
                     title: if is_bookmarked { "Hapus Markah Bab Ini" } else { "Simpan Markah Bab Ini" },
+                    aria_label: "Ubah markah bab",
                     onclick: move |_| on_toggle_bookmark.call(()),
                     svg { class: "w-4 h-4", view_box: "0 0 24 24",
                         fill: if is_bookmarked { "currentColor" } else { "none" },
@@ -83,9 +85,10 @@ pub fn ReaderTopBar(
 
                 // In-Book Search
                 button {
-                    class: "w-9 h-9 rounded-full flex items-center justify-center apple-tap opacity-70 hover:opacity-100 transition-all",
+                    class: "w-10 h-10 rounded-full flex items-center justify-center apple-tap opacity-70 hover:opacity-100 transition-all",
                     style: "color: {theme.text_primary()};",
-                    title: "Cari Teks dalam Bab",
+                    title: "Cari di Seluruh Buku",
+                    aria_label: "Cari di dalam buku",
                     onclick: move |_| on_toggle_search.call(()),
                     svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2",
                         circle { cx: "11", cy: "11", r: "8" }
@@ -95,9 +98,10 @@ pub fn ReaderTopBar(
 
                 // Gemini AI
                 button {
-                    class: "w-9 h-9 rounded-full flex items-center justify-center apple-tap opacity-70 hover:opacity-100 transition-all",
+                    class: "w-10 h-10 rounded-full flex items-center justify-center apple-tap opacity-70 hover:opacity-100 transition-all",
                     style: "color: {theme.text_primary()};",
                     title: "Tanya AI (Gemini)",
+                    aria_label: "Buka asisten AI",
                     onclick: move |_| on_toggle_ai.call(()),
                     svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2",
                         path { d: "m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" }
@@ -106,18 +110,20 @@ pub fn ReaderTopBar(
 
                 // Typography Controls
                 button {
-                    class: "w-9 h-9 rounded-full flex items-center justify-center apple-tap font-serif text-[15px] font-medium opacity-80 hover:opacity-100 transition-all",
+                    class: "w-10 h-10 rounded-full flex items-center justify-center apple-tap font-serif text-[15px] font-medium opacity-80 hover:opacity-100 transition-all",
                     style: "color: {theme.text_primary()};",
                     title: "Pengaturan Tipografi",
+                    aria_label: "Buka pengaturan tipografi",
                     onclick: move |_| on_toggle_typography.call(()),
                     "Aa"
                 }
 
                 // TOC Drawer
                 button {
-                    class: "w-9 h-9 rounded-full flex items-center justify-center apple-tap opacity-70 hover:opacity-100 transition-all",
+                    class: "w-10 h-10 rounded-full flex items-center justify-center apple-tap opacity-70 hover:opacity-100 transition-all",
                     style: "color: {theme.text_primary()};",
                     title: "Daftar Isi & Markah",
+                    aria_label: "Buka daftar isi",
                     onclick: move |_| on_toggle_toc.call(()),
                     svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2",
                         line { x1: "8", y1: "6", x2: "21", y2: "6" }

@@ -11,13 +11,19 @@ pub fn ExploreHeader(
     let mut local_text = use_signal(|| search_query.clone());
     let mut debounce_id = use_signal(|| 0u64);
 
+    use_effect(use_reactive(&search_query, move |q| {
+        if *local_text.peek() != q {
+            local_text.set(q);
+        }
+    }));
+
     let mut on_input_change = {
-        let on_search = on_search.clone();
+        let on_search = on_search;
         move |val: String| {
             local_text.set(val.clone());
             let next_id = *debounce_id.read() + 1;
             debounce_id.set(next_id);
-            let search = on_search.clone();
+            let search = on_search;
 
             spawn(async move {
                 tokio::time::sleep(std::time::Duration::from_millis(380)).await;
@@ -100,7 +106,7 @@ pub fn ExploreHeader(
                         class: "absolute right-3.5 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100 p-1.5 text-xs transition-opacity flex items-center justify-center rounded-full",
                         style: "color: {theme.text_secondary()};",
                         onclick: {
-                            let on_search = on_search.clone();
+                            let on_search = on_search;
                             move |_| {
                                 local_text.set(String::new());
                                 on_search.call(String::new());

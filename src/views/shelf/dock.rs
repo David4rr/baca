@@ -17,7 +17,7 @@ pub fn FloatingDock(
 
             // 1. Home / Shelf (Active solid fill)
             button {
-                class: "apple-tap p-1.5 rounded-full transition-transform",
+                class: "apple-tap p-2.5 rounded-full transition-transform",
                 style: "color: {theme.text_primary()};",
                 title: "Rak Buku",
                 svg {
@@ -33,7 +33,7 @@ pub fn FloatingDock(
 
             // 2. Explore / Internet Archive
             button {
-                class: "apple-tap p-1.5 rounded-full transition-transform opacity-60 hover:opacity-100",
+                class: "apple-tap p-2.5 rounded-full transition-transform opacity-60 hover:opacity-100",
                 style: "color: {theme.text_secondary()};",
                 title: "Jelajahi & Unduh Online",
                 onclick: move |_| on_explore.call(()),
@@ -56,7 +56,7 @@ pub fn FloatingDock(
 
             // 3. Reading Statistics
             button {
-                class: "apple-tap p-1.5 rounded-full transition-transform opacity-60 hover:opacity-100",
+                class: "apple-tap p-2.5 rounded-full transition-transform opacity-60 hover:opacity-100",
                 style: "color: {theme.text_secondary()};",
                 title: "Statistik Membaca",
                 onclick: move |_| on_stats.call(()),
@@ -79,7 +79,7 @@ pub fn FloatingDock(
 
             // 4. Settings & Backup
             button {
-                class: "apple-tap p-1.5 rounded-full transition-transform opacity-60 hover:opacity-100 relative",
+                class: "apple-tap p-2.5 rounded-full transition-transform opacity-60 hover:opacity-100 relative",
                 style: "color: {theme.text_secondary()};",
                 title: "Cadangkan & Pengaturan",
                 onclick: move |_| on_settings.call(()),

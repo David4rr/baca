@@ -63,7 +63,7 @@ pub fn BookDetailView(
 
                 // Large Realistic Cover
                 div {
-                    class: "book-cover-realistic w-40 sm:w-48 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border flex-shrink-0 relative group",
+                    class: "book-cover-realistic w-40 sm:w-48 aspect-[2/3] rounded-2xl overflow-hidden shadow-lg border flex-shrink-0 relative group",
                     style: "border-color: {theme.border_color()}; background-color: {theme.surface_subtle()};",
                     img {
                         class: "w-full h-full object-cover select-none pointer-events-none transition-transform duration-500 group-hover:scale-105",

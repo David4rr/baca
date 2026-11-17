@@ -28,7 +28,7 @@ pub fn StatsSummary(
                 span {
                     class: "text-xs font-sans font-medium tracking-tight opacity-60",
                     style: "color: {theme.text_secondary()};",
-                    "Total Waktu"
+                    "Total 7 Hari"
                 }
                 span {
                     class: "font-serif text-2xl sm:text-3xl font-bold mt-2",

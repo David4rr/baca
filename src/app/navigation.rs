@@ -34,10 +34,6 @@ pub fn handle_device_back(
         show_update_modal.set(false);
         return;
     }
-    if state.format_modal_book.read().is_some() {
-        *state.format_modal_book.write() = None;
-        return;
-    }
     if *state.is_typography_open.read() {
         *state.is_typography_open.write() = false;
         return;
@@ -58,7 +54,7 @@ pub fn handle_device_back(
     let view = state.current_view.read().clone();
     match view {
         View::BookDetail { .. } => {
-            *state.current_view.write() = View::Explore;
+            *state.current_view.write() = View::Shelf;
             return;
         }
         v if v != View::Shelf => {

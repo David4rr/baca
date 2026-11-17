@@ -9,41 +9,40 @@ pub mod stats;
 use models::{BackupData, Book, Bookmark, DailyReadingStats, ReadingSession, UserSettings};
 use rusqlite::{Connection, Result};
 use std::path::PathBuf;
+use std::time::Duration;
 
 pub struct Database {
     conn: Connection,
 }
 
 impl Database {
-    pub fn init() -> Result<Self> {
-        let db_path = Self::get_db_path();
-        if let Some(parent) = db_path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        match Connection::open(&db_path) {
-            Ok(conn) => {
-                let db = Self { conn };
-                if let Err(e) = db.create_tables() {
-                    eprintln!("[Baca DB] create_tables failed: {:?}, using memory fallback", e);
-                    return Self::memory();
-                }
-                Ok(db)
-            }
-            Err(e) => {
-                eprintln!("[Baca DB] Connection failed: {:?}, using memory fallback", e);
-                Self::memory()
-            }
-        }
+    /// Opens the persistent library. Returns an error instead of silently
+    /// degrading to an in-memory database, so the UI can show a real failure.
+    pub fn init() -> std::result::Result<Self, String> {
+        let db_path = Self::get_db_path()?;
+        let conn = Connection::open(&db_path)
+            .map_err(|e| format!("Gagal membuka basis data: {e}"))?;
+        conn.busy_timeout(Duration::from_secs(5))
+            .map_err(|e| format!("Gagal mengatur basis data: {e}"))?;
+        conn.pragma_update(None, "foreign_keys", "ON")
+            .map_err(|e| format!("Gagal mengaktifkan integritas basis data: {e}"))?;
+        let _ = conn.pragma_update(None, "journal_mode", "WAL");
+        let db = Self { conn };
+        db.create_tables()
+            .map_err(|e| format!("Gagal menyiapkan skema basis data: {e}"))?;
+        Ok(db)
     }
 
+    /// In-memory database for tests only.
     pub fn memory() -> Result<Self> {
         let conn = Connection::open_in_memory()?;
+        conn.pragma_update(None, "foreign_keys", "ON")?;
         let db = Self { conn };
         db.create_tables()?;
         Ok(db)
     }
 
-    pub fn get_app_dir() -> PathBuf {
+    pub fn get_app_dir() -> std::result::Result<PathBuf, String> {
         #[cfg(target_os = "android")]
         {
             let pkg = std::fs::read_to_string("/proc/self/cmdline")
@@ -55,31 +54,43 @@ impl Database {
                 candidates.push(format!("/data/data/{}/files", pkg));
                 candidates.push(format!("/data/user/0/{}/files", pkg));
             }
-            candidates.push("/data/data/com.example.Baca/files".to_string());
             candidates.push("/data/data/com.baca.reader/files".to_string());
-            candidates.push("/sdcard/Download".to_string());
 
             for dir_str in candidates {
                 let dir = PathBuf::from(&dir_str);
-                if std::fs::create_dir_all(&dir).is_ok() {
-                    return dir;
+                if Self::is_writable(&dir) {
+                    return Ok(dir);
                 }
             }
-            PathBuf::from(".")
+            Err("Tidak ada direktori aplikasi yang bisa ditulis".to_string())
         }
         #[cfg(not(target_os = "android"))]
         {
-            let mut path = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
-            path.push("baca_reader");
-            let _ = std::fs::create_dir_all(&path);
-            path
+            let base = dirs::data_local_dir()
+                .ok_or_else(|| "Direktori data pengguna tidak ditemukan".to_string())?;
+            let path = base.join("baca_reader");
+            if Self::is_writable(&path) {
+                Ok(path)
+            } else {
+                Err(format!("Direktori tidak bisa ditulis: {}", path.display()))
+            }
         }
     }
 
-    fn get_db_path() -> PathBuf {
-        let mut path = Self::get_app_dir();
-        path.push("library.db");
-        path
+    fn is_writable(path: &std::path::Path) -> bool {
+        if std::fs::create_dir_all(path).is_err() {
+            return false;
+        }
+        let probe = path.join(".baca_write_probe");
+        if std::fs::write(&probe, b"ok").is_err() {
+            return false;
+        }
+        let _ = std::fs::remove_file(&probe);
+        true
+    }
+
+    fn get_db_path() -> std::result::Result<PathBuf, String> {
+        Ok(Self::get_app_dir()?.join("library.db"))
     }
 
     fn create_tables(&self) -> Result<()> {
@@ -97,6 +108,10 @@ impl Database {
 
     pub fn update_progress(&self, book_id: &str, chapter: usize, progress: f32) -> Result<()> {
         books::update_progress(&self.conn, book_id, chapter, progress)
+    }
+
+    pub fn touch_last_read(&self, book_id: &str) -> Result<()> {
+        books::touch_last_read(&self.conn, book_id)
     }
 
     pub fn delete_book(&self, book_id: &str) -> Result<()> {
@@ -131,6 +146,10 @@ impl Database {
 
     pub fn get_all_reading_sessions(&self) -> Result<Vec<ReadingSession>> {
         stats::get_all_reading_sessions(&self.conn)
+    }
+
+    pub fn get_total_reading_minutes(&self) -> Result<u32> {
+        stats::get_total_reading_minutes(&self.conn)
     }
 
     // Settings delegation

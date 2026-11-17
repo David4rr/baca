@@ -18,6 +18,9 @@ pub fn AppRouter(
     on_delete_book: EventHandler<String>,
     on_import: EventHandler<()>,
     on_change_chapter: EventHandler<usize>,
+    on_progress: EventHandler<(usize, f32)>,
+    on_pdf_progress: EventHandler<f32>,
+    on_save_book: EventHandler<Book>,
     on_change_settings: EventHandler<UserSettings>,
     on_export_backup: EventHandler<()>,
     on_restore_backup: EventHandler<String>,
@@ -44,7 +47,7 @@ pub fn AppRouter(
                         }
                     },
                     on_import: move |_| on_import.call(()),
-                    on_import_book: move |b: Book| state.books.write().insert(0, b),
+                    on_import_book: move |b: Book| on_save_book.call(b),
                     on_select_detail: move |b| *state.current_view.write() = View::BookDetail { book: b },
                     on_explore: move |_| *state.current_view.write() = View::Explore,
                     on_stats: move |_| *state.current_view.write() = View::Stats,
@@ -55,7 +58,7 @@ pub fn AppRouter(
                 ExploreView {
                     theme: current_theme,
                     library_books: state.books.read().clone(),
-                    on_import_book: move |b: Book| state.books.write().insert(0, b),
+                    on_import_book: move |b: Book| on_save_book.call(b),
                     on_select_detail: move |b| *state.current_view.write() = View::BookDetail { book: b },
                     on_back: move |_| *state.current_view.write() = View::Shelf,
                 }
@@ -65,9 +68,9 @@ pub fn AppRouter(
                     book: book.clone(),
                     library_books: state.books.read().clone(),
                     theme: current_theme,
-                    on_import_book: move |b: Book| state.books.write().insert(0, b),
+                    on_import_book: move |b: Book| on_save_book.call(b),
                     on_open_book: move |b| on_select_book.call(b),
-                    on_back: move |_| *state.current_view.write() = View::Explore,
+                    on_back: move |_| *state.current_view.write() = View::Shelf,
                 }
             },
             View::Stats => rsx! {
@@ -85,7 +88,10 @@ pub fn AppRouter(
                     on_change_settings: move |s| on_change_settings.call(s),
                     on_export_backup: move |_| on_export_backup.call(()),
                     on_restore_backup: move |json| on_restore_backup.call(json),
-                    on_show_update_modal: move |_| show_update_modal.set(true),
+                    on_show_update_modal: move |rel: ReleaseInfo| {
+                        available_update.set(Some(rel));
+                        show_update_modal.set(true);
+                    },
                     on_back: move |_| *state.current_view.write() = View::Shelf,
                 }
             },
@@ -98,9 +104,13 @@ pub fn AppRouter(
                         current_chapter: *state.current_chapter.read(),
                         theme: current_theme,
                         settings: settings.clone(),
-                        is_bookmarked: state.bookmarks.read().iter().any(|b| b.chapter_index == *state.current_chapter.read()),
+                        is_bookmarked: state.bookmarks.read().iter().any(|b| {
+                            b.book_id == book.id && b.chapter_index == *state.current_chapter.read()
+                        }),
                         highlight_keyword: state.inbook_keyword.read().clone(),
                         on_change_chapter: move |ch| on_change_chapter.call(ch),
+                        on_progress: move |(ch, frac)| on_progress.call((ch, frac)),
+                        on_pdf_progress: move |p| on_pdf_progress.call(p),
                         on_back: move |_| *state.current_view.write() = View::Shelf,
                         on_toggle_typography: move |_| { let cur = *state.is_typography_open.read(); *state.is_typography_open.write() = !cur; },
                         on_toggle_toc: move |_| { let cur = *state.is_toc_open.read(); *state.is_toc_open.write() = !cur; },
@@ -139,7 +149,7 @@ pub fn AppRouter(
                             on_change_settings: move |s| on_change_settings.call(s),
                         }
                         InBookSearchModal {
-                            chapters: epub_data.chapters.clone(),
+                            epub: epub_data.clone(),
                             theme: current_theme,
                             is_open: *state.is_inbook_search_open.read(),
                             on_close: move |_| *state.is_inbook_search_open.write() = false,
@@ -170,7 +180,7 @@ pub fn AppRouter(
                 theme: current_theme,
                 on_confirm: {
                     let id = book_to_delete.id.clone();
-                    let on_del = on_delete_book.clone();
+                    let on_del = on_delete_book;
                     move |_| {
                         *state.delete_confirm_book.write() = None;
                         on_del.call(id.clone());

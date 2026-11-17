@@ -9,6 +9,7 @@ pub fn ReaderScrubber(
     est_minutes_left: usize,
     theme: ThemeMode,
     on_change_theme: EventHandler<String>,
+    on_seek: EventHandler<usize>,
 ) -> Element {
     rsx! {
         div {
@@ -19,17 +20,23 @@ pub fn ReaderScrubber(
                 class: "w-full max-w-xl pointer-events-auto rounded-[24px] px-6 py-3.5 mb-3 backdrop-blur-2xl border shadow-lg transition-all duration-300",
                 style: "background-color: {theme.surface_color()}E6; border-color: {theme.border_color()}; box-shadow: 0 12px 32px rgba(0,0,0,0.06);",
 
-                // Fine Scrubber Track
-                div {
-                    class: "w-full relative h-3 flex items-center cursor-pointer",
-                    div {
-                        class: "w-full h-1 rounded-full",
-                        style: "background-color: {theme.surface_subtle()};",
-                        div {
-                            class: "h-full rounded-full transition-all duration-300",
-                            style: "width: {progress_percent}%; background-color: {theme.accent_color()};",
+                // Fine Scrubber Track (draggable / keyboard accessible)
+                input {
+                    r#type: "range",
+                    min: "0",
+                    max: "100",
+                    value: "{progress_percent}",
+                    class: "w-full cursor-pointer h-1.5 rounded-full appearance-none",
+                    style: "accent-color: {theme.accent_color()}; background-color: {theme.surface_subtle()};",
+                    aria_label: "Posisi bacaan",
+                    onchange: move |e: FormEvent| {
+                        if let Ok(v) = e.value().parse::<u32>() {
+                            if total_chapters > 0 {
+                                let target = ((v as f32 / 100.0) * total_chapters as f32).floor() as usize;
+                                on_seek.call(target.min(total_chapters - 1));
+                            }
                         }
-                    }
+                    },
                 }
 
                 // Scrubber Labels (65% | Chapter 5 of 12 | 14 min left)
@@ -41,11 +48,11 @@ pub fn ReaderScrubber(
                     }
                     span {
                         style: "color: {theme.text_secondary()};",
-                        "Chapter {current_chapter + 1} of {total_chapters}"
+                        "Bab {current_chapter + 1} dari {total_chapters}"
                     }
                     span {
                         style: "color: {theme.text_muted()};",
-                        "{est_minutes_left} min left"
+                        "{est_minutes_left} menit tersisa"
                     }
                 }
             }
@@ -64,6 +71,7 @@ pub fn ReaderScrubber(
                         format!("color: {}; opacity: 0.6;", theme.text_secondary())
                     },
                     title: "Mode Terang",
+                    aria_label: "Mode terang",
                     onclick: move |_| on_change_theme.call("light".to_string()),
                     svg {
                         class: "w-4 h-4",
@@ -93,6 +101,7 @@ pub fn ReaderScrubber(
                         format!("color: {}; opacity: 0.6;", theme.text_secondary())
                     },
                     title: "Mode Kertas Hangat",
+                    aria_label: "Mode kertas hangat",
                     onclick: move |_| on_change_theme.call("warm".to_string()),
                     svg {
                         class: "w-4 h-4",
@@ -117,6 +126,7 @@ pub fn ReaderScrubber(
                         format!("color: {}; opacity: 0.6;", theme.text_secondary())
                     },
                     title: "Mode Gelap OLED",
+                    aria_label: "Mode gelap OLED",
                     onclick: move |_| on_change_theme.call("amoled".to_string()),
                     svg {
                         class: "w-4 h-4",
@@ -128,6 +138,30 @@ pub fn ReaderScrubber(
                         stroke: "currentColor",
                         stroke_width: "2",
                         path { d: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" }
+                    }
+                }
+
+                // Midnight Slate
+                button {
+                    class: "w-9 h-7 rounded-full flex items-center justify-center apple-tap transition-all",
+                    style: if theme == ThemeMode::Slate {
+                        format!("background-color: {}; color: {}; box-shadow: 0 2px 8px rgba(0,0,0,0.12);", theme.text_primary(), theme.bg_color())
+                    } else {
+                        format!("color: {}; opacity: 0.6;", theme.text_secondary())
+                    },
+                    title: "Mode Slate",
+                    aria_label: "Mode slate",
+                    onclick: move |_| on_change_theme.call("slate".to_string()),
+                    svg {
+                        class: "w-4 h-4",
+                        width: "16",
+                        height: "16",
+                        style: "width: 16px; height: 16px; min-width: 16px; min-height: 16px;",
+                        view_box: "0 0 24 24",
+                        fill: "none",
+                        stroke: "currentColor",
+                        stroke_width: "2",
+                        path { d: "M2 12h4l3-8 4 16 3-8h6" }
                     }
                 }
             }

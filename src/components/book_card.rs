@@ -17,7 +17,18 @@ pub fn BookCard(
     rsx! {
         div {
             class: "book-card group relative flex flex-col cursor-pointer apple-tap select-none transition-all duration-300 hover:-translate-y-1",
+            role: "button",
+            tabindex: "0",
+            aria_label: "Buka buku {book.title}",
             onclick: move |_| on_select.call(book_clone.clone()),
+            onkeydown: {
+                let selected = book.clone();
+                move |e: KeyboardEvent| {
+                    if e.key() == Key::Enter || e.key() == Key::Character(" ".to_string()) {
+                        on_select.call(selected.clone());
+                    }
+                }
+            },
 
             // 1. Cover Container with Apple-standard realistic 3D depth & spine
             div {
@@ -67,7 +78,7 @@ pub fn BookCard(
                 if book.cover_image.is_some() {
                     div { class: "absolute top-2.5 left-2.5 z-10",
                         span {
-                            class: "px-2 py-0.5 rounded-md text-[9px] font-sans font-bold uppercase tracking-wider backdrop-blur-md shadow-xs text-white",
+                            class: "px-2 py-0.5 rounded-md text-[9px] font-sans font-bold uppercase tracking-wider backdrop-blur-md shadow-sm text-white",
                             style: if is_pdf { "background-color: rgba(239, 68, 68, 0.85);" } else { "background-color: rgba(0, 0, 0, 0.55);" },
                             if is_pdf { "PDF" } else { "EPUB" }
                         }
@@ -76,9 +87,10 @@ pub fn BookCard(
 
                 // Direct Delete Button on Book Card Cover
                 button {
-                    class: "absolute top-2.5 right-2.5 z-10 rounded-full bg-black/60 hover:bg-rose-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 apple-tap shadow-md backdrop-blur-sm",
-                    style: "width: 28px; height: 28px; min-width: 28px; min-height: 28px;",
+                    class: "absolute top-2 right-2 z-10 rounded-full bg-black/60 hover:bg-rose-600 text-white flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 apple-tap shadow-md backdrop-blur-sm",
+                    style: "width: 36px; height: 36px; min-width: 36px; min-height: 36px;",
                     title: "Hapus Buku",
+                    aria_label: "Hapus buku {book.title}",
                     onclick: {
                         let id = book_id.clone();
                         move |e: MouseEvent| {
@@ -102,7 +114,7 @@ pub fn BookCard(
 
                 // Progress Bar Overlay on Bottom of Cover
                 if progress > 0 {
-                    div { class: "absolute bottom-0 inset-x-0 h-1 bg-black/30 backdrop-blur-xs",
+                    div { class: "absolute bottom-0 inset-x-0 h-1 bg-black/30 backdrop-blur-sm",
                         div {
                             class: "h-full transition-all duration-500",
                             style: if progress >= 100 { "width: 100%; background-color: #10B981;" } else { "width: {progress}%; background-color: {theme.accent_color()};" },
@@ -121,7 +133,7 @@ pub fn BookCard(
                 }
                 div { class: "flex items-center justify-between mt-0.5",
                     p {
-                        class: "font-sans text-[12px] truncate opacity-65 flex-1 mr-2",
+                        class: "font-sans text-[12px] truncate flex-1 mr-2",
                         style: "color: {theme.text_secondary()};",
                         "{book.author}"
                     }

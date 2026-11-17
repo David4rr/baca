@@ -57,10 +57,12 @@ pub async fn ask_gemini(api_key: &str, model: &str, term: &str) -> Result<String
         model.trim()
     };
 
+    if !model_name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | '_')) {
+        return Err("Nama model Gemini tidak valid".to_string());
+    }
     let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
-        model_name,
-        api_key.trim()
+        "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
+        model_name
     );
 
     let prompt = format!(
@@ -76,6 +78,7 @@ pub async fn ask_gemini(api_key: &str, model: &str, term: &str) -> Result<String
 
     let resp = client
         .post(&url)
+        .header("x-goog-api-key", api_key.trim())
         .json(&body)
         .send()
         .await

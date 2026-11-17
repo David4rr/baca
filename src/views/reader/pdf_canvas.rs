@@ -1,4 +1,7 @@
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine as _;
 use dioxus::prelude::*;
+
 use crate::db::models::Book;
 use crate::theme::ThemeMode;
 
@@ -6,155 +9,189 @@ use crate::theme::ThemeMode;
 pub fn PdfCanvas(
     book: Book,
     theme: ThemeMode,
+    initial_progress: f32,
     on_back: EventHandler<()>,
+    on_progress: EventHandler<f32>,
 ) -> Element {
     let mut current_page = use_signal(|| 1usize);
-    let total_pages = use_signal(|| 1usize);
-    let mut zoom_scale = use_signal(|| 100u32);
+    let mut total_pages = use_signal(|| 0usize);
+    let mut zoom = use_signal(|| 100u32);
+    let mut error = use_signal(|| None::<String>);
 
-    let file_url = if book.file_path.starts_with("http") || book.file_path.starts_with("file://") {
-        book.file_path.clone()
-    } else {
-        format!("file://{}", book.file_path)
-    };
+    use_hook(move || {
+        let path = book.file_path.clone();
+        spawn(async move {
+            let read = tokio::task::spawn_blocking(move || std::fs::read(&path)).await;
+            match read {
+                Ok(Ok(bytes)) if bytes.len() <= 128 * 1024 * 1024 => {
+                    let encoded = BASE64.encode(bytes);
+                    let script = super::pdf_script::get_boot_script(&encoded, initial_progress);
+                    let _eval = document::eval(&script);
+                }
+                Ok(Ok(_)) => error.set(Some("Berkas PDF terlalu besar untuk dibuka".to_string())),
+                Ok(Err(e)) => error.set(Some(format!("Gagal membaca berkas PDF: {e}"))),
+                Err(e) => error.set(Some(format!("Gagal membaca berkas PDF: {e}"))),
+            }
+        });
+    });
 
-    let title_escaped = book.title.replace('"', "\\\"");
-    let pdf_script = super::pdf_script::get_pdf_script(&file_url);
+    use_effect(move || {
+        let page = *current_page.read();
+        let scale = *zoom.read() as f64 / 100.0;
+        if *total_pages.read() == 0 {
+            return;
+        }
+        spawn(async move {
+            let _ = document::eval(&format!(
+                "window.__baca_pdf_render && window.__baca_pdf_render({page}, {scale});"
+            ));
+        });
+    });
+
+    use_effect(move || {
+        let page = *current_page.read();
+        let total = *total_pages.read();
+        if total > 0 {
+            on_progress.call((page as f32 / total as f32).clamp(0.0, 1.0));
+        }
+    });
+
+    let total = *total_pages.read();
+    let page = *current_page.read();
+    let can_prev = page > 1;
+    let can_next = total > 0 && page < total;
 
     rsx! {
         div {
-            class: "w-full max-w-4xl mx-auto px-4 sm:px-6 pt-4 pb-20 flex flex-col flex-1 min-h-screen animate-fade-in",
+            class: "w-full h-[100svh] flex flex-col overflow-hidden",
+            style: "background-color: {theme.bg_color()}; color: {theme.text_primary()};",
 
-            // Top Header
+            input {
+                id: "baca-pdf-total",
+                r#type: "text",
+                style: "display: none;",
+                oninput: move |e| {
+                    if let Ok(n) = e.value().parse::<usize>() {
+                        total_pages.set(n);
+                    }
+                },
+            }
+            input {
+                id: "baca-pdf-current",
+                r#type: "text",
+                style: "display: none;",
+                oninput: move |e| {
+                    if let Ok(n) = e.value().parse::<usize>() {
+                        current_page.set(n);
+                    }
+                },
+            }
+            input {
+                id: "baca-pdf-error",
+                r#type: "text",
+                style: "display: none;",
+                oninput: move |e| {
+                    if !e.value().is_empty() {
+                        error.set(Some(e.value()));
+                    }
+                },
+            }
+
             div {
-                class: "flex items-center justify-between pb-3 select-none",
+                class: "flex items-center justify-between gap-3 px-4 pb-3 border-b apple-nav-glass",
+                style: "padding-top: max(calc(env(safe-area-inset-top, 0px) + 0.65rem), 2.25rem); background-color: {theme.bg_color()}F0; border-color: {theme.border_color()}60;",
                 button {
-                    class: "w-10 h-10 rounded-full flex items-center justify-center border shadow-sm apple-tap transition-all",
+                    class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap",
                     style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
-                    title: "Kembali ke Rak",
+                    title: "Kembali",
+                    aria_label: "Kembali ke rak",
                     onclick: move |_| on_back.call(()),
-                    svg { class: "w-5 h-5", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.2", stroke_linecap: "round", stroke_linejoin: "round",
+                    svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5", stroke_linecap: "round", stroke_linejoin: "round",
                         polyline { points: "15 18 9 12 15 6" }
                     }
                 }
-
-                div {
-                    class: "flex flex-col items-center max-w-[60%] text-center min-w-0",
-                    h2 {
-                        class: "font-serif text-base font-semibold truncate",
-                        style: "color: {theme.text_primary()};",
-                        "{title_escaped}"
-                    }
-                    span {
-                        class: "text-xs font-sans opacity-60 truncate",
-                        style: "color: {theme.text_secondary()};",
-                        "{book.author}"
-                    }
+                div { class: "flex-1 min-w-0 text-center",
+                    p { class: "font-serif text-sm font-semibold truncate", "{book.title}" }
+                    p { class: "font-sans text-[11px] opacity-60", if total > 0 { "Hal. {page} / {total}" } else { "Memuat PDF..." } }
                 }
-
-                span {
-                    class: "px-2.5 py-1 rounded-full text-[10px] font-sans font-bold uppercase tracking-wider",
-                    style: "background-color: #ef444420; color: #ef4444;",
-                    "PDF"
-                }
-            }
-
-            // PDF Toolbar (Page Selector & Zoom)
-            div {
-                class: "flex items-center justify-between px-3 py-2 mb-3 rounded-2xl border text-xs font-sans select-none",
-                style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()};",
-
-                // Page Navigation
-                div { class: "flex items-center gap-2",
+                div { class: "flex items-center gap-1",
                     button {
-                        class: "px-2.5 py-1 rounded-lg border apple-tap disabled:opacity-30",
-                        style: "border-color: {theme.border_color()};",
-                        disabled: *current_page.read() <= 1,
+                        class: "w-9 h-9 rounded-full border flex items-center justify-center apple-tap",
+                        style: "border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                        title: "Perkecil",
+                        aria_label: "Perkecil",
                         onclick: move |_| {
-                            let p = *current_page.read();
-                            if p > 1 {
-                                current_page.set(p - 1);
-                                let scale = (*zoom_scale.read() as f32) / 100.0 * 1.2;
-                                let _ = document::eval(&format!("window.__baca_render_pdf_page({}, {});", p - 1, scale));
-                            }
-                        },
-                        "◀"
-                    }
-                    span { "Hal. {current_page} / " }
-                    span { id: "baca-pdf-total-pages", "{total_pages}" }
-                    button {
-                        class: "px-2.5 py-1 rounded-lg border apple-tap",
-                        style: "border-color: {theme.border_color()};",
-                        onclick: move |_| {
-                            let p = *current_page.read();
-                            current_page.set(p + 1);
-                            let scale = (*zoom_scale.read() as f32) / 100.0 * 1.2;
-                            let _ = document::eval(&format!("window.__baca_render_pdf_page({}, {});", p + 1, scale));
-                        },
-                        "▶"
-                    }
-                }
-
-                // Zoom Controls
-                div { class: "flex items-center gap-1.5",
-                    button {
-                        class: "w-7 h-7 rounded-lg border flex items-center justify-center font-bold apple-tap",
-                        style: "border-color: {theme.border_color()};",
-                        disabled: *zoom_scale.read() <= 60,
-                        onclick: move |_| {
-                            let z = *zoom_scale.read();
-                            if z > 60 {
-                                zoom_scale.set(z - 20);
-                                let scale = ((z - 20) as f32) / 100.0 * 1.2;
-                                let _ = document::eval(&format!("window.__baca_render_pdf_page({}, {});", *current_page.read(), scale));
-                            }
-                        },
+                        let next = (*zoom.peek()).saturating_sub(10).max(60);
+                        zoom.set(next);
+                    },
                         "-"
                     }
-                    span { class: "w-10 text-center font-semibold", "{zoom_scale}%" }
                     button {
-                        class: "w-7 h-7 rounded-lg border flex items-center justify-center font-bold apple-tap",
-                        style: "border-color: {theme.border_color()};",
-                        disabled: *zoom_scale.read() >= 200,
+                        class: "w-9 h-9 rounded-full border flex items-center justify-center apple-tap",
+                        style: "border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                        title: "Perbesar",
+                        aria_label: "Perbesar",
                         onclick: move |_| {
-                            let z = *zoom_scale.read();
-                            if z < 200 {
-                                zoom_scale.set(z + 20);
-                                let scale = ((z + 20) as f32) / 100.0 * 1.2;
-                                let _ = document::eval(&format!("window.__baca_render_pdf_page({}, {});", *current_page.read(), scale));
-                            }
-                        },
+                        let next = (*zoom.peek() + 10).min(300);
+                        zoom.set(next);
+                    },
                         "+"
                     }
                 }
             }
 
-            // Canvas Display Area
             div {
-                class: "flex-1 w-full rounded-2xl overflow-auto border shadow-lg relative min-h-[65vh] flex items-center justify-center p-4",
-                style: "border-color: {theme.border_color()}; background-color: {theme.surface_subtle()};",
-
-                canvas {
-                    id: "baca-pdf-canvas",
-                    class: "max-w-full shadow-md rounded-lg transition-transform",
-                }
-
-                // Fallback state if PDF.js is unavailable
-                div {
-                    id: "baca-pdf-fallback",
-                    class: "hidden absolute inset-0 flex-col items-center justify-center p-6 text-center space-y-4",
-                    p { class: "text-sm font-sans opacity-70", "Pratinjau langsung memerlukan koneksi awal atau pembaca PDF eksternal." }
-                    a {
-                        href: "{file_url}",
-                        target: "_blank",
-                        class: "px-5 py-2.5 rounded-xl font-sans text-xs font-semibold shadow-sm apple-tap transition-all",
-                        style: "background-color: {theme.accent_color()}; color: {theme.accent_contrast_text()};",
-                        "Buka dengan Pembaca PDF Bawaan ↗"
+                class: "flex-1 overflow-y-auto overscroll-contain px-3 py-4 flex flex-col items-center",
+                if let Some(msg) = error.read().as_ref() {
+                    div {
+                        class: "m-auto max-w-sm text-center flex flex-col gap-3 p-6 rounded-2xl border",
+                        style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()};",
+                        p { class: "font-sans text-sm", "{msg}" }
+                        button {
+                            class: "px-4 py-2 rounded-full text-xs font-sans font-medium border apple-tap",
+                            style: "border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                            onclick: move |_| on_back.call(()),
+                            "Kembali ke rak"
+                        }
+                    }
+                } else {
+                    canvas {
+                        id: "baca-pdf-canvas",
+                        class: "max-w-full rounded-lg shadow-lg bg-white",
                     }
                 }
             }
 
-            script { dangerous_inner_html: "{pdf_script}" }
+            div {
+                class: "flex items-center justify-between gap-4 px-6 pb-4 pt-3 border-t",
+                style: "padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 1rem), 1rem); background-color: {theme.bg_color()}F0; border-color: {theme.border_color()}60;",
+                button {
+                    class: "px-4 py-2.5 rounded-full text-xs font-sans font-medium border apple-tap disabled:opacity-40",
+                    style: "border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                    disabled: !can_prev,
+                    aria_label: "Halaman sebelumnya",
+                    onclick: move |_| {
+                        let next = (*current_page.peek()).saturating_sub(1).max(1);
+                        current_page.set(next);
+                    },
+                    "Sebelumnya"
+                }
+                span { class: "font-sans text-xs opacity-60", if total > 0 { "Hal. {page} / {total}" } else { "—" } }
+                button {
+                    class: "px-4 py-2.5 rounded-full text-xs font-sans font-medium border apple-tap disabled:opacity-40",
+                    style: "border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                    disabled: !can_next,
+                    aria_label: "Halaman berikutnya",
+                    onclick: move |_| {
+                        let total = *total_pages.peek();
+                        if total > 0 {
+                            let next = (*current_page.peek() + 1).min(total);
+                            current_page.set(next);
+                        }
+                    },
+                    "Berikutnya"
+                }
+            }
         }
     }
 }

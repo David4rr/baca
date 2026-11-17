@@ -28,7 +28,7 @@ fn test_semver_comparisons() {
 
 #[test]
 fn test_update_storage_dir() {
-    let dir = get_update_storage_dir();
+    let dir = get_update_storage_dir().expect("update dir should resolve");
     assert!(dir.to_string_lossy().contains("updates"));
     assert!(dir.exists());
 }

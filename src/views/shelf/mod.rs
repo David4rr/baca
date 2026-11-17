@@ -45,7 +45,11 @@ pub fn ShelfView(
         .cloned()
         .collect();
 
-    let featured_book = filtered_books.iter().find(|b| b.last_read_at > 0).cloned();
+    let featured_book = filtered_books
+        .iter()
+        .filter(|b| b.last_read_at > 0)
+        .max_by_key(|b| b.last_read_at)
+        .cloned();
     let recent_books: Vec<Book> = if let Some(ref fb) = featured_book {
         filtered_books.iter().filter(|b| b.id != fb.id).cloned().collect()
     } else {
@@ -75,11 +79,11 @@ pub fn ShelfView(
 
                 div {
                     class: "flex items-center gap-2 flex-shrink-0",
-                    label {
-                        r#for: "baca-file-picker",
-                        class: "w-10 h-10 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all cursor-pointer",
-                        style: "width: 40px; height: 40px; min-width: 40px; min-height: 40px; background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
+                    button {
+                        class: "w-11 h-11 rounded-full flex items-center justify-center shadow-sm border apple-tap transition-all cursor-pointer",
+                        style: "width: 44px; height: 44px; min-width: 44px; min-height: 44px; background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
                         title: "Tambah Buku Lokal (EPUB / PDF)",
+                        aria_label: "Tambah buku lokal",
                         onclick: move |_| on_import.call(()),
                         svg { class: "w-4 h-4 pointer-events-none", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.2", stroke_linecap: "round", stroke_linejoin: "round",
                             line { x1: "12", y1: "5", x2: "12", y2: "19" }
@@ -127,7 +131,7 @@ pub fn ShelfView(
                                 class: "absolute right-3.5 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100 p-1.5 text-xs transition-opacity flex items-center justify-center rounded-full",
                                 style: "color: {theme.text_secondary()};",
                                 onclick: {
-                                    let on_search = on_search.clone();
+                                    let on_search = on_search;
                                     move |_| on_search.call(String::new())
                                 },
                                 svg { class: "w-3.5 h-3.5", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
@@ -159,7 +163,7 @@ pub fn ShelfView(
                 }
 
                 RecentGrid {
-                    books: filtered_books,
+                    books: recent_books.clone(),
                     recent_books: recent_books,
                     search_query: search_query,
                     theme: theme,

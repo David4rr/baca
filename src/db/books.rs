@@ -70,9 +70,20 @@ pub fn update_progress(conn: &Connection, book_id: &str, chapter: usize, progres
     Ok(())
 }
 
+pub fn touch_last_read(conn: &Connection, book_id: &str) -> Result<()> {
+    let now = chrono::Utc::now().timestamp();
+    conn.execute(
+        "UPDATE books SET last_read_at = ?1 WHERE id = ?2",
+        params![now, book_id],
+    )?;
+    Ok(())
+}
+
 pub fn delete_book(conn: &Connection, book_id: &str) -> Result<()> {
-    conn.execute("DELETE FROM bookmarks WHERE book_id = ?1", params![book_id])?;
-    conn.execute("DELETE FROM reading_sessions WHERE book_id = ?1", params![book_id])?;
-    conn.execute("DELETE FROM books WHERE id = ?1", params![book_id])?;
+    let tx = conn.unchecked_transaction()?;
+    tx.execute("DELETE FROM bookmarks WHERE book_id = ?1", params![book_id])?;
+    tx.execute("DELETE FROM reading_sessions WHERE book_id = ?1", params![book_id])?;
+    tx.execute("DELETE FROM books WHERE id = ?1", params![book_id])?;
+    tx.commit()?;
     Ok(())
 }

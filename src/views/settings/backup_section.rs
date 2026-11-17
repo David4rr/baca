@@ -9,19 +9,25 @@ pub fn BackupSection(
 ) -> Element {
     let mut restore_json = use_signal(String::new);
     let mut show_restore_input = use_signal(|| false);
+    let mut file_error = use_signal(|| None::<String>);
 
     let on_restore_file = {
-        let on_res = on_restore.clone();
+        let on_res = on_restore;
         move |evt: FormEvent| {
             if let Some(engine) = evt.files() {
                 if let Some(first) = engine.files().first() {
                     let (f_name, fe) = (first.clone(), engine.clone());
-                    let on_r = on_res.clone();
+                    let on_r = on_res;
                     spawn(async move {
-                        if let Some(bytes) = fe.read_file(&f_name).await {
-                            if let Ok(text) = String::from_utf8(bytes) {
-                                on_r.call(text);
-                            }
+                        match fe.read_file(&f_name).await {
+                            Some(bytes) => match String::from_utf8(bytes) {
+                                Ok(text) => {
+                                    file_error.set(None);
+                                    on_r.call(text);
+                                }
+                                Err(_) => file_error.set(Some("Berkas cadangan bukan teks UTF-8".to_string())),
+                            },
+                            None => file_error.set(Some("Berkas cadangan tidak dapat dibaca".to_string())),
                         }
                     });
                 }
@@ -38,7 +44,7 @@ pub fn BackupSection(
                 r#type: "file",
                 id: "baca-backup-file-picker",
                 accept: ".json,application/json",
-                style: "display: none !important;",
+                style: "position: fixed; left: -9999px; top: 0; width: 1px; height: 1px; opacity: 0;",
                 onchange: on_restore_file,
             }
 
@@ -81,6 +87,10 @@ pub fn BackupSection(
                     },
                     "Tempel Teks"
                 }
+            }
+
+            if let Some(err) = file_error.read().as_ref() {
+                p { class: "text-xs font-sans text-rose-500", "{err}" }
             }
 
             if *show_restore_input.read() {

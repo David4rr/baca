@@ -11,7 +11,7 @@ Tanpa server, tanpa pelacakan (*zero telemetry*), tanpa ketergantungan webview l
 
 ---
 
-## 🌟 Fitur Utama (v3.1 Pure Rust)
+## 🌟 Fitur Utama (v3.4 Pure Rust)
 
 - **Pure Rust Engine & Dioxus UI**: Zero JavaScript overhead. Performa native, hemat memori, dan responsif instan.
 - **Cross-Platform**:

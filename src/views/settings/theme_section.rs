@@ -38,7 +38,7 @@ pub fn ThemeSection(
                     {
                         let id_str = id.to_string();
                         let is_active = current_theme.as_str() == id;
-                        let on_select = on_select_theme.clone();
+                        let on_select = on_select_theme;
 
                         rsx! {
                             button {

@@ -21,8 +21,18 @@ pub fn StatsView(
         0
     };
 
-    let streak = stats.iter().rev().take_while(|s| s.minutes > 0).count() as u32;
-    let completed_books = books.iter().filter(|b| b.progress_percent >= 0.98).count();
+    let mut streak = 0u32;
+    for (idx, day) in stats.iter().rev().enumerate() {
+        if idx == 0 && day.minutes == 0 {
+            continue; // today is still in progress; keep yesterday's streak alive
+        }
+        if day.minutes > 0 {
+            streak += 1;
+        } else {
+            break;
+        }
+    }
+    let completed_books = books.iter().filter(|b| b.progress_percent >= 0.999).count();
 
     rsx! {
         div {

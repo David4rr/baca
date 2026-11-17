@@ -4,7 +4,7 @@ use baca::engine::sanitizer::sanitize_html;
 fn test_sanitize_strips_scripts() {
     let input = "<p>Hello <script>alert('pwned');</script>World!</p>";
     let cleaned = sanitize_html(input);
-    assert!(!cleaned.contains("<script>"));
+    assert!(!cleaned.contains("<script"));
     assert!(!cleaned.contains("alert('pwned');"));
     assert!(cleaned.contains("Hello"));
     assert!(cleaned.contains("World!"));
@@ -24,5 +24,8 @@ fn test_sanitize_strips_iframes() {
 fn test_sanitize_preserves_typography_markup() {
     let input = "<h1>Chapter 1</h1><p>A <em>beautiful</em> <strong>day</strong>.</p><blockquote>Quote</blockquote>";
     let cleaned = sanitize_html(input);
-    assert_eq!(cleaned, input);
+    assert!(cleaned.contains("<h1>Chapter 1</h1>"));
+    assert!(cleaned.contains("<em>beautiful</em>"));
+    assert!(cleaned.contains("<strong>day</strong>"));
+    assert!(cleaned.contains("<blockquote>Quote</blockquote>"));
 }

@@ -165,10 +165,21 @@ fn extract_attr(line: &str, attr_name: &str) -> Option<String> {
     None
 }
 
+const MAX_HTML_BYTES: u64 = 8 * 1024 * 1024;
+
 fn read_zip_entry_to_string(archive: &mut ZipArchive<File>, entry_name: &str) -> Result<String, String> {
-    let mut entry = archive.by_name(entry_name).map_err(|e| format!("Zip entry '{}' tidak ditemukan: {}", entry_name, e))?;
+    let entry = archive.by_name(entry_name).map_err(|e| format!("Zip entry '{}' tidak ditemukan: {}", entry_name, e))?;
+    if entry.size() > MAX_HTML_BYTES {
+        return Err(format!("Zip entry '{}' terlalu besar ({} byte)", entry_name, entry.size()));
+    }
     let mut buffer = Vec::new();
-    entry.read_to_end(&mut buffer).map_err(|e| format!("Gagal membaca '{}': {}", entry_name, e))?;
+    entry
+        .take(MAX_HTML_BYTES + 1)
+        .read_to_end(&mut buffer)
+        .map_err(|e| format!("Gagal membaca '{}': {}", entry_name, e))?;
+    if buffer.len() as u64 > MAX_HTML_BYTES {
+        return Err(format!("Zip entry '{}' melebihi batas ukuran", entry_name));
+    }
     Ok(String::from_utf8_lossy(&buffer).to_string())
 }
 

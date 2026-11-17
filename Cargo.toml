@@ -1,6 +1,6 @@
 [package]
 name = "baca"
-version = "3.3.4"
+version = "3.4.0"
 edition = "2021"
 authors = ["David4rr", "ilhamdanials"]
 description = "A modern, local-first e-book reader (EPUB & PDF) built with Pure Rust & Dioxus"
@@ -16,20 +16,24 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
-thiserror = "2.0"
 chrono = { version = "0.4", features = ["serde"] }
-dirs = "5.0"
 uuid = { version = "1.10", features = ["v4", "serde"] }
 base64 = "0.22"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
 urlencoding = "2.1"
+ammonia = "4.1"
+sha2 = "0.10"
+hex = "0.4"
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
+dirs = "5.0"
 rfd = "0.15"
 dioxus = { version = "0.6", features = ["desktop"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 dioxus = { version = "0.6", features = ["mobile"] }
+jni = "0.21"
+ndk-context = "0.1"
 
 [dev-dependencies]
 tempfile = "3.13"

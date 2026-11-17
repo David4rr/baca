@@ -132,7 +132,7 @@ pub fn UpdateSection(
                         }
                     }
                     button {
-                        class: "px-3.5 py-1.5 rounded-xl text-xs font-sans font-medium border shadow-xs apple-tap transition-all flex items-center gap-1.5",
+                        class: "px-3.5 py-1.5 rounded-xl text-xs font-sans font-medium border shadow-sm apple-tap transition-all flex items-center gap-1.5",
                         style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()};",
                         disabled: *is_checking.read(),
                         onclick: check_updates,

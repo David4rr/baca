@@ -3,6 +3,9 @@ use std::io::Read;
 use zip::ZipArchive;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
+const MAX_IMAGE_BYTES: u64 = 8 * 1024 * 1024;
+const MAX_EMBED_BYTES: usize = 48 * 1024 * 1024;
+
 pub fn normalize_zip_path(base_dir: &str, relative_path: &str) -> String {
     let combined = if base_dir.is_empty() {
         relative_path.to_string()
@@ -24,9 +27,15 @@ pub fn normalize_zip_path(base_dir: &str, relative_path: &str) -> String {
 }
 
 pub fn read_zip_entry_as_base64(archive: &mut ZipArchive<File>, entry_name: &str, media_type: &str) -> Option<String> {
-    if let Ok(mut entry) = archive.by_name(entry_name) {
+    if let Ok(entry) = archive.by_name(entry_name) {
+        if entry.size() > MAX_IMAGE_BYTES {
+            return None;
+        }
+        let entry = entry;
         let mut buffer = Vec::new();
-        if entry.read_to_end(&mut buffer).is_ok() {
+        if entry.take(MAX_IMAGE_BYTES + 1).read_to_end(&mut buffer).is_ok()
+            && buffer.len() as u64 <= MAX_IMAGE_BYTES
+        {
             let b64 = BASE64.encode(&buffer);
             return Some(format!("data:{};base64,{}", media_type, b64));
         }
@@ -35,10 +44,16 @@ pub fn read_zip_entry_as_base64(archive: &mut ZipArchive<File>, entry_name: &str
     let target_lower = entry_name.to_lowercase();
     let count = archive.len();
     for i in 0..count {
-        if let Ok(mut entry) = archive.by_index(i) {
+        if let Ok(entry) = archive.by_index(i) {
+            if entry.size() > MAX_IMAGE_BYTES {
+                continue;
+            }
             if entry.name().to_lowercase() == target_lower {
+                let entry = entry;
                 let mut buffer = Vec::new();
-                if entry.read_to_end(&mut buffer).is_ok() {
+                if entry.take(MAX_IMAGE_BYTES + 1).read_to_end(&mut buffer).is_ok()
+                    && buffer.len() as u64 <= MAX_IMAGE_BYTES
+                {
                     let b64 = BASE64.encode(&buffer);
                     return Some(format!("data:{};base64,{}", media_type, b64));
                 }
@@ -74,6 +89,11 @@ pub fn embed_images_into_html(
     while let Some(tag_start) = html[cursor..].find("<img") {
         let actual_start = cursor + tag_start;
         result.push_str(&html[cursor..actual_start]);
+
+        if result.len() >= MAX_EMBED_BYTES {
+            result.push_str(&html[actual_start..]);
+            return result;
+        }
 
         if let Some(tag_end) = html[actual_start..].find('>') {
             let full_tag = &html[actual_start..actual_start + tag_end + 1];

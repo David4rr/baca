@@ -1,27 +1,73 @@
-/// Case-insensitive HTML text highlighter that preserves tags and attributes.
+/// Case-insensitive (ASCII) highlighter that never slices inside a UTF-8
+/// codepoint and never rewrites text inside HTML tags or attributes.
 pub fn highlight_html(html: &str, keyword: &str) -> String {
-    let lower_html = html.to_lowercase();
-    let lower_kw = keyword.to_lowercase();
-    let kw_len = keyword.len();
-    if kw_len == 0 { return html.to_string(); }
-
-    let mut result = String::with_capacity(html.len() + 256);
-    let mut last_idx = 0;
-
-    for (start_byte, _) in lower_html.match_indices(&lower_kw) {
-        if start_byte < last_idx { continue; }
-        let preceding = &html[..start_byte];
-        let in_tag = preceding.rfind('<').map_or(false, |open| {
-            preceding.rfind('>').map_or(true, |close| open > close)
-        });
-        if in_tag { continue; }
-
-        result.push_str(&html[last_idx..start_byte]);
-        result.push_str("<mark class=\"bg-amber-300 text-stone-900 rounded px-1 font-semibold\">");
-        result.push_str(&html[start_byte..start_byte + kw_len]);
-        result.push_str("</mark>");
-        last_idx = start_byte + kw_len;
+    let keyword = keyword.trim();
+    if keyword.is_empty() || html.len() < keyword.len() {
+        return html.to_string();
     }
-    result.push_str(&html[last_idx..]);
+
+    let bytes = html.as_bytes();
+    let needle = keyword.as_bytes();
+    let mut result = String::with_capacity(html.len() + 64);
+    let mut last = 0;
+    let mut i = 0;
+    let mut in_tag = false;
+
+    while i < html.len() {
+        let ch = html[i..].chars().next().unwrap();
+
+        if ch == '<' {
+            in_tag = true;
+            i += 1;
+            continue;
+        }
+        if ch == '>' {
+            in_tag = false;
+            i += 1;
+            continue;
+        }
+
+        if !in_tag
+            && i + needle.len() <= bytes.len()
+            && bytes[i..i + needle.len()].eq_ignore_ascii_case(needle)
+        {
+            result.push_str(&html[last..i]);
+            result.push_str("<mark class=\"baca-hit\">");
+            result.push_str(&html[i..i + needle.len()]);
+            result.push_str("</mark>");
+            i += needle.len();
+            last = i;
+            continue;
+        }
+
+        i += ch.len_utf8();
+    }
+
+    result.push_str(&html[last..]);
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::highlight_html;
+
+    #[test]
+    fn handles_non_ascii_without_panicking() {
+        for html in [
+            "<p>İSTANBUL ıstanbul</p>",
+            "<p>ẞtraße STRASSE</p>",
+            "<p>日本語のテキスト</p>",
+        ] {
+            let _ = highlight_html(html, "istanbul");
+            let _ = highlight_html(html, "日本");
+            let _ = highlight_html(html, "ß");
+        }
+    }
+
+    #[test]
+    fn does_not_highlight_tags() {
+        let out = highlight_html("<p class=\"title\">title</p>", "title");
+        assert!(out.contains("class=\"title\""));
+        assert_eq!(out.matches("<mark").count(), 1);
+    }
 }

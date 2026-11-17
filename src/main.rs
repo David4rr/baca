@@ -7,7 +7,10 @@ fn main() {
         #[cfg(target_os = "android")]
         {
             use std::io::Write;
-            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/sdcard/Download/baca_crash.log") {
+            let log_path = baca::db::Database::get_app_dir()
+                .map(|d| d.join("baca_crash.log"))
+                .unwrap_or_else(|_| std::env::temp_dir().join("baca_crash.log"));
+            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
                 let _ = writeln!(f, "[Crash Log] {:?}", info);
             }
         }
@@ -24,8 +27,7 @@ fn main() {
 
         let custom_head = r#"
             <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-            <link rel="stylesheet" href="assets/styles/main.css">
-            <script src="https://cdn.tailwindcss.com"></script>
+            <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; object-src 'none'; base-uri 'none';">
         "#.to_string();
 
         let cfg = Config::new()

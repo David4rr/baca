@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use crate::engine::updater::{download_update_package, ReleaseInfo};
+use crate::engine::updater::{download_update_package, install_update, ReleaseInfo};
 use crate::theme::ThemeMode;
 
 #[component]
@@ -9,19 +9,23 @@ pub fn UpdateModal(release: ReleaseInfo, theme: ThemeMode, on_close: EventHandle
     let mut download_complete = use_signal(|| false);
     let mut saved_path = use_signal(|| Option::<String>::None);
     let mut error_msg = use_signal(|| Option::<String>::None);
+    let mut is_installing = use_signal(|| false);
 
     let current_ver = env!("CARGO_PKG_VERSION");
     let is_android = cfg!(target_os = "android");
-    let (target_url, target_name) = if is_android && release.apk_url.is_some() {
-        (release.apk_url.clone().unwrap(), format!("baca-{}-android.apk", release.version))
-    } else if let Some(ref desk) = release.desktop_url {
-        (desk.clone(), format!("baca-{}-macos.tar.gz", release.version))
+    let target = if is_android {
+        release.apk_url.clone().map(|u| (u, format!("baca-{}-android.apk", release.version)))
     } else {
-        (release.html_url.clone(), format!("baca-{}", release.tag_name))
+        release.desktop_url.clone().map(|u| {
+            let ext = if u.ends_with(".zip") { "zip" } else { "tar.gz" };
+            (u, format!("baca-{}-{}.{}", release.version, std::env::consts::OS, ext))
+        })
     };
+    let has_asset = target.is_some();
+    let (target_url, target_name) = target.unwrap_or_default();
 
     let start_download = move |_| {
-        if *is_downloading.read() { return; }
+        if *is_downloading.read() || target_url.is_empty() { return; }
         is_downloading.set(true);
         progress.set(0.0);
         error_msg.set(None);
@@ -50,8 +54,15 @@ pub fn UpdateModal(release: ReleaseInfo, theme: ThemeMode, on_close: EventHandle
             onclick: move |_| on_close.call(()),
 
             div {
-                class: "w-full max-w-lg rounded-t-3xl sm:rounded-3xl border shadow-2xl p-6 sm:p-7 flex flex-col gap-5 animate-spring-pop max-h-[90vh] overflow-y-auto",
-                style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()};",
+                class: "w-full max-w-lg rounded-t-3xl sm:rounded-3xl border shadow-lg p-6 sm:p-7 flex flex-col gap-5 animate-spring-pop max-h-[90vh] overflow-y-auto",
+                style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 1.5rem), 1.75rem);",
+                role: "dialog",
+                aria_modal: "true",
+                aria_label: "Pembaruan aplikasi",
+                tabindex: "0",
+                onkeydown: move |e: KeyboardEvent| {
+                    if e.key() == Key::Escape { on_close.call(()); }
+                },
                 onclick: move |e| e.stop_propagation(),
 
                 // Header
@@ -77,6 +88,8 @@ pub fn UpdateModal(release: ReleaseInfo, theme: ThemeMode, on_close: EventHandle
                     button {
                         class: "w-8 h-8 rounded-full flex items-center justify-center border apple-tap opacity-70",
                         style: "border-color: {theme.border_color()}; color: {theme.text_secondary()};",
+                        title: "Tutup",
+                        aria_label: "Tutup pembaruan",
                         onclick: move |_| on_close.call(()),
                         svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
                             line { x1: "18", y1: "6", x2: "6", y2: "18" }
@@ -129,7 +142,22 @@ pub fn UpdateModal(release: ReleaseInfo, theme: ThemeMode, on_close: EventHandle
                                     span { class: "text-[11px] opacity-75 font-mono truncate", "Tersimpan: {path}" }
                                 }
                             }
-                            a { class: "w-full py-3.5 rounded-2xl font-sans text-sm font-semibold flex items-center justify-center text-white shadow-md apple-tap", style: "background-color: {theme.accent_color()};", href: "{release.html_url}", target: "_blank", "Buka Laman Rilis & Pasang" }
+                            button {
+                                class: "w-full py-3.5 rounded-2xl font-sans text-sm font-semibold flex items-center justify-center text-white shadow-md apple-tap disabled:opacity-50",
+                                style: "background-color: {theme.accent_color()};",
+                                disabled: *is_installing.read(),
+                                onclick: move |_| {
+                                    let Some(path) = saved_path.read().clone() else { return };
+                                    if *is_installing.read() { return; }
+                                    is_installing.set(true);
+                                    error_msg.set(None);
+                                    if let Err(e) = install_update(std::path::Path::new(&path)) {
+                                        is_installing.set(false);
+                                        error_msg.set(Some(e));
+                                    }
+                                },
+                                if *is_installing.read() { "Memasang..." } else { "Pasang Pembaruan" }
+                            }
                         }
                     } else if *is_downloading.read() {
                         div { class: "flex flex-col gap-2 p-3.5 rounded-2xl border", style: "background-color: {theme.bg_color()}; border-color: {theme.border_color()};",
@@ -140,24 +168,22 @@ pub fn UpdateModal(release: ReleaseInfo, theme: ThemeMode, on_close: EventHandle
                         }
                     } else {
                         button {
-                            class: "w-full py-3.5 rounded-2xl font-sans text-sm font-semibold flex items-center justify-center gap-2 text-white shadow-md apple-tap",
+                            class: "w-full py-3.5 rounded-2xl font-sans text-sm font-semibold flex items-center justify-center gap-2 text-white shadow-md apple-tap disabled:opacity-50",
                             style: "background-color: {theme.accent_color()};",
+                            disabled: !has_asset,
                             onclick: start_download,
                             svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5", stroke_linecap: "round", stroke_linejoin: "round",
                                 path { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }
                                 polyline { points: "7 10 12 15 17 10" }
                                 line { x1: "12", y1: "15", x2: "12", y2: "3" }
                             }
-                            "Unduh Pembaruan Sekarang"
+                            if has_asset { "Unduh Pembaruan Sekarang" } else { "Berkas pembaruan belum tersedia" }
                         }
                     }
 
-                    a {
-                        class: "w-full py-2.5 rounded-2xl font-sans text-xs font-medium text-center border apple-tap opacity-80 hover:opacity-100",
-                        style: "border-color: {theme.border_color()}; color: {theme.text_secondary()};",
-                        href: "{release.html_url}",
-                        target: "_blank",
-                        "Buka Laman Rilis di GitHub ↗"
+                    p {
+                        class: "text-[11px] font-sans text-center opacity-50",
+                        "Berkas diverifikasi dengan SHA-256 sebelum dipasang."
                     }
                 }
             }

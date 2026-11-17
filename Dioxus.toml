@@ -5,10 +5,10 @@ out_dir = "dist"
 asset_dir = "assets"
 
 [bundle]
-identifier = "com.baca.reader"
+identifier = "com.baca.Baca"
 publisher = "Baca"
 icon = ["assets/icon.png"]
 
 [android]
-package_name = "com.baca.reader"
+package_name = "com.baca.Baca"
 app_title = "Baca"

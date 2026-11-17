@@ -8,12 +8,17 @@ pub fn AppleToast(
     on_dismiss: EventHandler<()>,
 ) -> Element {
     let msg_clone = message.clone();
+    let mut generation = use_signal(|| 0u64);
     use_effect(use_reactive(&msg_clone, move |msg| {
         if msg.is_some() {
-            let on_d = on_dismiss.clone();
+            let current = *generation.peek() + 1;
+            generation.set(current);
+            let on_d = on_dismiss;
             spawn(async move {
                 tokio::time::sleep(std::time::Duration::from_millis(2600)).await;
-                on_d.call(());
+                if *generation.peek() == current {
+                    on_d.call(());
+                }
             });
         }
     }));
@@ -21,7 +26,7 @@ pub fn AppleToast(
     if let Some(msg) = message {
         rsx! {
             div {
-                class: "fixed left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-2.5 rounded-full shadow-2xl border backdrop-blur-2xl animate-spring-pop select-none cursor-pointer max-w-[90vw]",
+                class: "fixed left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-2.5 rounded-full shadow-lg border backdrop-blur-2xl animate-spring-pop select-none cursor-pointer max-w-[90vw]",
                 style: "top: max(calc(env(safe-area-inset-top, 0px) + 0.85rem), 1.25rem); background-color: {theme.surface_color()}F5; border-color: {theme.border_color()}; box-shadow: 0 16px 36px rgba(0,0,0,0.18);",
                 onclick: move |_| on_dismiss.call(()),
 

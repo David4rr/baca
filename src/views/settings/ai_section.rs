@@ -59,7 +59,10 @@ pub fn AiSection(
                     r#type: "password",
                     placeholder: "AIzaSy...",
                     value: "{current_key}",
-                    oninput: move |e| current_key.set(e.value()),
+                    oninput: move |e| {
+                        current_key.set(e.value());
+                        show_saved.set(false);
+                    },
                 }
             }
 
@@ -75,7 +78,10 @@ pub fn AiSection(
                         } else {
                             format!("background-color: {}; color: {}; border-color: {};", theme.bg_color(), theme.text_secondary(), theme.border_color())
                         },
-                        onclick: move |_| current_model.set("gemini-2.5-flash".to_string()),
+                        onclick: move |_| {
+                            current_model.set("gemini-2.5-flash".to_string());
+                            show_saved.set(false);
+                        },
                         "Gemini 2.5 Flash"
                     }
                     button {
@@ -85,7 +91,10 @@ pub fn AiSection(
                         } else {
                             format!("background-color: {}; color: {}; border-color: {};", theme.bg_color(), theme.text_secondary(), theme.border_color())
                         },
-                        onclick: move |_| current_model.set("gemini-1.5-pro".to_string()),
+                        onclick: move |_| {
+                            current_model.set("gemini-1.5-pro".to_string());
+                            show_saved.set(false);
+                        },
                         "Gemini 1.5 Pro"
                     }
                 }

@@ -1,21 +1,27 @@
 use crate::db::models::{DailyReadingStats, ReadingSession};
 use rusqlite::{params, Connection, Result};
 
+const MAX_SESSION_SECONDS: u32 = 12 * 60 * 60;
+
 pub fn record_reading_session(conn: &Connection, book_id: &str, duration_seconds: u32) -> Result<()> {
-    let now = chrono::Utc::now();
+    let clamped = duration_seconds.min(MAX_SESSION_SECONDS);
+    if clamped < 5 {
+        return Ok(());
+    }
+    let now = chrono::Local::now();
     let date_str = now.format("%Y-%m-%d").to_string();
     let session_id = uuid::Uuid::new_v4().to_string();
 
     conn.execute(
         "INSERT INTO reading_sessions (id, book_id, duration_seconds, timestamp, date_str)
          VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![session_id, book_id, duration_seconds, now.timestamp(), date_str],
+        params![session_id, book_id, clamped, now.timestamp(), date_str],
     )?;
     Ok(())
 }
 
 pub fn get_7_day_stats(conn: &Connection) -> Result<Vec<DailyReadingStats>> {
-    let now = chrono::Utc::now();
+    let now = chrono::Local::now();
     let mut stats = Vec::new();
 
     for i in (0..7).rev() {
@@ -35,7 +41,7 @@ pub fn get_7_day_stats(conn: &Connection) -> Result<Vec<DailyReadingStats>> {
             "SELECT COALESCE(SUM(duration_seconds), 0) FROM reading_sessions WHERE date_str = ?1",
         )?;
         let total_seconds: u32 = stmt.query_row(params![date_str], |row| row.get(0))?;
-        let minutes = (total_seconds + 30) / 60;
+        let minutes = total_seconds.div_ceil(60);
 
         stats.push(DailyReadingStats {
             date_str,
@@ -67,4 +73,13 @@ pub fn get_all_reading_sessions(conn: &Connection) -> Result<Vec<ReadingSession>
         sessions.push(s?);
     }
     Ok(sessions)
+}
+
+pub fn get_total_reading_minutes(conn: &Connection) -> Result<u32> {
+    let seconds: u32 = conn.query_row(
+        "SELECT COALESCE(SUM(duration_seconds), 0) FROM reading_sessions",
+        [],
+        |row| row.get(0),
+    )?;
+    Ok(seconds / 60)
 }

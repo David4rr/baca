@@ -17,7 +17,7 @@ pub fn FontControls(
         div { class: "fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-fade-in", onclick: move |_| on_close.call(()) }
 
         div {
-            class: "fixed top-[calc(env(safe-area-inset-top,0px)+3.8rem)] right-3 sm:right-6 z-50 w-88 max-w-[92vw] p-5 rounded-[28px] shadow-2xl border flex flex-col gap-4 origin-top-right transform-gpu transition-all duration-200 animate-fade-in backdrop-blur-2xl",
+            class: "fixed top-[calc(env(safe-area-inset-top,0px)+3.8rem)] right-3 sm:right-6 z-50 w-[22rem] max-w-[92vw] max-h-[75vh] overflow-y-auto p-5 rounded-[28px] shadow-lg border flex flex-col gap-4 origin-top-right transform-gpu transition-all duration-200 animate-fade-in backdrop-blur-2xl",
             style: "background-color: {theme.surface_color()}F5; border-color: {theme.border_color()}; color: {theme.text_primary()};",
 
             div { class: "flex items-center justify-between pb-2 border-b", style: "border-color: {theme.border_color()};",
@@ -28,6 +28,8 @@ pub fn FontControls(
                 button {
                     class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-60 hover:opacity-100",
                     style: "background-color: {theme.surface_subtle()};",
+                    title: "Tutup pengaturan tipografi",
+                    aria_label: "Tutup pengaturan tipografi",
                     onclick: move |_| on_close.call(()),
                     svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2.5",
                         line { x1: "18", y1: "6", x2: "6", y2: "18" }
@@ -76,7 +78,7 @@ pub fn FontControls(
                         onclick: { let mut s = current.clone(); move |_| { if s.font_size > 12 { s.font_size -= 1; on_change_settings.call(s.clone()); } } }, "A-"
                     }
                     input { r#type: "range", min: "12", max: "32", value: "{current.font_size}", class: "flex-1 cursor-pointer h-1.5 rounded-full bg-stone-200",
-                        oninput: { let mut s = current.clone(); move |e: FormEvent| { if let Ok(sz) = e.value().parse::<u32>() { s.font_size = sz; on_change_settings.call(s.clone()); } } }
+                        onchange: { let mut s = current.clone(); move |e: FormEvent| { if let Ok(sz) = e.value().parse::<u32>() { s.font_size = sz; on_change_settings.call(s.clone()); } } }
                     }
                     button { class: "w-10 h-10 rounded-xl border flex items-center justify-center text-base font-semibold apple-tap shadow-sm", style: "border-color: {theme.border_color()}; background-color: {theme.surface_subtle()};",
                         disabled: current.font_size >= 32,
@@ -94,6 +96,30 @@ pub fn FontControls(
                             style: if (current.line_height - lh_val).abs() < 0.1 { format!("border-color: {}; background-color: {}; color: {};", theme.accent_color(), theme.accent_color(), theme.accent_contrast_text()) } else { format!("border-color: {}; background-color: {}; color: {};", theme.border_color(), theme.surface_subtle(), theme.text_secondary()) },
                             onclick: { let mut s = current.clone(); move |_| { s.line_height = lh_val; on_change_settings.call(s.clone()); } },
                             "{lh_label}"
+                        }
+                    }
+                }
+            }
+
+            // Horizontal Margin Controls
+            div { class: "flex flex-col gap-2",
+                div { class: "flex items-center justify-between text-xs font-sans",
+                    span { class: "font-semibold tracking-wider uppercase opacity-50 text-[11px]", "LEBAR MARGIN" }
+                    span { class: "font-semibold", "{current.margin_horizontal}px" }
+                }
+                input {
+                    r#type: "range",
+                    min: "16",
+                    max: "80",
+                    value: "{current.margin_horizontal}",
+                    class: "w-full cursor-pointer h-1.5 rounded-full bg-stone-200",
+                    onchange: {
+                        let mut s = current.clone();
+                        move |e: FormEvent| {
+                            if let Ok(m) = e.value().parse::<u32>() {
+                                s.margin_horizontal = m;
+                                on_change_settings.call(s.clone());
+                            }
                         }
                     }
                 }

@@ -14,6 +14,7 @@ pub fn OnlineFeed(
     let mut selected_category = use_signal(|| "classics".to_string());
     let mut online_books = use_signal(Vec::<ArchiveBook>::new);
     let mut is_loading = use_signal(|| false);
+    let mut error_msg = use_signal(|| None::<String>);
 
     let categories = [
         ("Klasik", "classics"),
@@ -27,8 +28,12 @@ pub fn OnlineFeed(
         let cat = selected_category.read().clone();
         spawn(async move {
             is_loading.set(true);
-            if let Ok(books) = search_archive(&cat, 1).await {
-                online_books.set(books);
+            match search_archive(&cat, 1).await {
+                Ok(books) => {
+                    error_msg.set(None);
+                    online_books.set(books);
+                }
+                Err(e) => error_msg.set(Some(e)),
             }
             is_loading.set(false);
         });
@@ -80,7 +85,13 @@ pub fn OnlineFeed(
             }
 
             // Books Grid or Loading
-            if *is_loading.read() && online_books.read().is_empty() {
+            if let Some(err) = error_msg.read().as_ref() {
+                div {
+                    class: "py-10 flex flex-col items-center justify-center gap-2 w-full text-center",
+                    span { class: "text-xs font-sans text-rose-500", "Gagal memuat katalog: {err}" }
+                    span { class: "text-[11px] font-sans opacity-50", "Periksa koneksi lalu pilih kategori lagi." }
+                }
+            } else if *is_loading.read() && online_books.read().is_empty() {
                 div {
                     class: "py-12 flex flex-col items-center justify-center gap-3 w-full",
                     div {
@@ -105,8 +116,8 @@ pub fn OnlineFeed(
                                     || (!clean_id.is_empty() && b.file_path.contains(&clean_id))
                                     || b.id == id
                             });
-                            let on_imp = on_imported_book.clone();
-                            let on_det = on_select_detail.clone();
+                            let on_imp = on_imported_book;
+                            let on_det = on_select_detail;
                             let book_click = book.clone();
                             let desc_snippet = book.description.as_deref().unwrap_or("Koleksi Project Gutenberg & Internet Archive");
                             rsx! {

@@ -20,11 +20,17 @@ pub fn TocDrawer(
     on_select: EventHandler<usize>,
     on_delete_bookmark: EventHandler<String>,
 ) -> Element {
+    let mut active_tab = use_signal(|| TocTab::Chapters);
+
+    use_effect(use_reactive(&is_open, move |open| {
+        if open {
+            active_tab.set(TocTab::Chapters);
+        }
+    }));
+
     if !is_open {
         return rsx! {};
     }
-
-    let mut active_tab = use_signal(|| TocTab::Chapters);
 
     rsx! {
         // Frosted Backdrop overlay
@@ -35,8 +41,15 @@ pub fn TocDrawer(
 
         // Apple Side Drawer with Spring Motion
         div {
-            class: "fixed inset-y-0 left-0 z-50 w-84 max-w-[85vw] shadow-2xl flex flex-col border-r animate-slide-up transition-all",
-            style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()}; box-shadow: {theme.card_shadow()};",
+            class: "fixed inset-y-0 left-0 z-50 w-[21rem] max-w-[85vw] shadow-lg flex flex-col border-r animate-drawer transition-all",
+            style: "background-color: {theme.surface_color()}; border-color: {theme.border_color()}; color: {theme.text_primary()}; box-shadow: {theme.card_shadow()}; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);",
+            role: "dialog",
+            aria_modal: "true",
+            aria_label: "Daftar isi buku",
+            tabindex: "0",
+            onkeydown: move |e: KeyboardEvent| {
+                if e.key() == Key::Escape { on_close.call(()); }
+            },
 
             // Drawer Header
             div {
@@ -47,8 +60,10 @@ pub fn TocDrawer(
                     p { class: "font-sans text-[11px] opacity-60", "Daftar isi dan markah halaman tersimpan" }
                 }
                 button {
-                    class: "w-8 h-8 rounded-full flex items-center justify-center apple-tap opacity-60 hover:opacity-100 transition-all",
+                    class: "w-10 h-10 rounded-full flex items-center justify-center apple-tap opacity-60 hover:opacity-100 transition-all",
                     style: "background-color: {theme.surface_subtle()}; color: {theme.text_primary()};",
+                    title: "Tutup daftar isi",
+                    aria_label: "Tutup daftar isi",
                     onclick: move |_| on_close.call(()),
                     svg { class: "w-4 h-4", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "2",
                         line { x1: "18", y1: "6", x2: "6", y2: "18" }
