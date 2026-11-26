@@ -1,7 +1,10 @@
 pub mod canvas;
 pub mod highlight;
+pub mod paged_view;
 pub mod pdf_canvas;
 pub mod pdf_script;
+pub mod scripts;
+pub mod scroll_view;
 pub mod scrubber;
 pub mod top_bar;
 
@@ -127,9 +130,8 @@ pub fn ReaderView(
         }
     };
     let total_chapters = epub_book.chapters.len();
-    let all_chapters = epub_book.chapters.clone();
-    let current_ch = epub_book.chapters.get(current_chapter).cloned();
-    let chapter_title = current_ch.as_ref().map(|c| c.title.clone());
+    let current_ch = epub_book.chapters.get(current_chapter);
+    let chapter_title = current_ch.map(|c| c.title.clone());
     let local_fraction = *fraction.read();
 
     let progress_percent = if total_chapters > 0 {
@@ -182,10 +184,8 @@ pub fn ReaderView(
             }
 
             ReaderCanvas {
-                current_ch: current_ch,
-                all_chapters: all_chapters,
+                epub: epub_book.clone(),
                 current_chapter: current_chapter,
-                total_chapters: total_chapters,
                 font_family_css: font_family_css,
                 font_size: settings.font_size,
                 line_height: settings.line_height,
@@ -206,7 +206,10 @@ pub fn ReaderView(
                         on_ch.call(ch);
                     }
                 },
-                on_metrics: move |(ch, f): (usize, f32)| {
+                on_ui_fraction: move |f: f32| {
+                    fraction.set(f);
+                },
+                on_commit_progress: move |(ch, f): (usize, f32)| {
                     fraction.set(f);
                     on_progress.call((ch, f));
                 },

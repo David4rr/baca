@@ -8,3 +8,9 @@
 *.sha256
 node_modules/
 dist/
+android-native/.gradle/
+android-native/build/
+android-native/app/build/
+android-native/local.properties
+android-native/app/src/main/jniLibs/
+android-native/app/src/main/kotlin/uniffi/

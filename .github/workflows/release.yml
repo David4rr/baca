@@ -99,9 +99,86 @@ jobs:
             ${{ matrix.archive_name }}
             ${{ matrix.archive_name }}.sha256
 
+  build-android-native:
+    name: Build (Android Native 120Hz APK)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK & NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK 28
+        run: sdkmanager "ndk;28.2.13676358" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          key: android-native
+
+      - name: Build baca-core (.so) & Generate UniFFI Kotlin Bindings
+        run: |
+          NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
+          TOOLCHAIN="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+
+          export CC_aarch64_linux_android="$TOOLCHAIN/aarch64-linux-android26-clang"
+          export AR_aarch64_linux_android="$TOOLCHAIN/llvm-ar"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$TOOLCHAIN/aarch64-linux-android26-clang"
+
+          export CC_x86_64_linux_android="$TOOLCHAIN/x86_64-linux-android26-clang"
+          export AR_x86_64_linux_android="$TOOLCHAIN/llvm-ar"
+          export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$TOOLCHAIN/x86_64-linux-android26-clang"
+
+          cargo build -p baca-core --release --target aarch64-linux-android
+          cargo build -p baca-core --release --target x86_64-linux-android
+
+          JNI_DIR="android-native/app/src/main/jniLibs"
+          mkdir -p "$JNI_DIR/arm64-v8a" "$JNI_DIR/x86_64"
+          cp target/aarch64-linux-android/release/libbaca_core.so "$JNI_DIR/arm64-v8a/"
+          cp target/x86_64-linux-android/release/libbaca_core.so "$JNI_DIR/x86_64/"
+
+          cargo build -p baca-core
+          cargo run -p baca-core --bin uniffi-bindgen -- generate \
+            --library target/debug/libbaca_core.so \
+            --language kotlin \
+            --out-dir android-native/app/src/main/kotlin
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14'
+
+      - name: Build Android APK
+        run: |
+          cd android-native
+          gradle assembleDebug
+          cd ..
+          cp android-native/app/build/outputs/apk/debug/app-debug.apk baca-android-native.apk
+          shasum -a 256 baca-android-native.apk > baca-android-native.apk.sha256
+
+      - name: Upload Android APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: baca-android-native.apk
+          path: |
+            baca-android-native.apk
+            baca-android-native.apk.sha256
+
   publish-release:
     name: Publish GitHub Release
-    needs: build-release
+    needs: [build-release, build-android-native]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository

@@ -226,8 +226,10 @@ button, a, input, select {
 /* Paginated reader: keep blocks intact within a column. */
 #baca-page-content,
 .baca-page-content {
+    height: 100%;
     column-fill: auto;
     column-width: var(--baca-col-w, 100%);
+    column-gap: 3rem;
     orphans: 2;
     widows: 2;
 }
@@ -238,6 +240,12 @@ button, a, input, select {
 .baca-page-content pre,
 .baca-page-content blockquote {
     break-inside: avoid;
+}
+
+/* Defer layout and paint for off-screen chapters in continuous scroll mode */
+.baca-chapter-deferred {
+    content-visibility: auto;
+    contain-intrinsic-size: auto none auto 900px;
 }
 
 /* Respect the OS reduced-motion preference. */

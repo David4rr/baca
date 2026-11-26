@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "crates/baca-core"]
+resolver = "2"
+
 [package]
 name = "baca"
 version = "3.4.3"
@@ -9,6 +13,7 @@ description = "A modern, local-first e-book reader (EPUB & PDF) built with Pure 
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+baca-core = { path = "crates/baca-core" }
 dioxus = { version = "0.6" }
 dioxus-logger = "0.6"
 tokio = { version = "1.40", features = ["full"] }

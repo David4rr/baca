@@ -20,7 +20,11 @@ impl Database {
     /// degrading to an in-memory database, so the UI can show a real failure.
     pub fn init() -> std::result::Result<Self, String> {
         let db_path = Self::get_db_path()?;
-        let conn = Connection::open(&db_path)
+        Self::open_path(&db_path)
+    }
+
+    pub fn open_path(db_path: &std::path::Path) -> std::result::Result<Self, String> {
+        let conn = Connection::open(db_path)
             .map_err(|e| format!("Gagal membuka basis data: {e}"))?;
         conn.busy_timeout(Duration::from_secs(5))
             .map_err(|e| format!("Gagal mengatur basis data: {e}"))?;
