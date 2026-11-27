@@ -1,6 +1,6 @@
 [package]
 name = "baca-core"
-version = "3.4.3"
+version = "3.5.1"
 edition = "2021"
 description = "Pure Rust core engine & SQLite persistence for Baca (EPUB & PDF) with UniFFI bindings"
 

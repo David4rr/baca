@@ -2,9 +2,12 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use crate::blocks::{html_to_blocks, ReaderBlock};
-use crate::db::models::{Book, Bookmark, DailyReadingStats, UserSettings};
+use crate::db::models::{BackupData, Book, Bookmark, DailyReadingStats, UserSettings};
 use crate::db::Database;
-use crate::engine::{parse_epub, search_archive, ArchiveBook};
+use crate::engine::{
+    ask_gemini, check_latest_release, download_archive_book_with_progress,
+    get_archive_format_file, parse_epub, search_archive, ArchiveBook,
+};
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum BacaError {
@@ -154,6 +157,16 @@ impl From<ArchiveBook> for NativeSearchBook {
             pdf_url: r.direct_pdf_url,
         }
     }
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct NativeReleaseInfo {
+    pub tag_name: String,
+    pub version: String,
+    pub name: String,
+    pub body: String,
+    pub html_url: String,
+    pub apk_url: Option<String>,
 }
 
 #[derive(uniffi::Object)]
@@ -373,5 +386,135 @@ impl BacaCore {
             .block_on(search_archive(&query, page))
             .map_err(|e| BacaError::Message { reason: e })?;
         Ok(results.into_iter().map(NativeSearchBook::from).collect())
+    }
+
+    pub fn delete_bookmark(&self, bookmark_id: String) -> Result<(), BacaError> {
+        let db = self.db.lock().map_err(|e| BacaError::Message { reason: e.to_string() })?;
+        db.delete_bookmark(&bookmark_id)?;
+        Ok(())
+    }
+
+    pub fn get_total_reading_minutes(&self) -> Result<u32, BacaError> {
+        let db = self.db.lock().map_err(|e| BacaError::Message { reason: e.to_string() })?;
+        Ok(db.get_total_reading_minutes()?)
+    }
+
+    pub fn download_online_book(
+        &self,
+        identifier: String,
+        title: String,
+        author: String,
+        format: String,
+        direct_url: Option<String>,
+    ) -> Result<NativeBook, BacaError> {
+        let fmt = format.to_lowercase();
+        let ext = if fmt == "pdf" { "pdf" } else { "epub" };
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| BacaError::Message { reason: e.to_string() })?;
+
+        let target = rt
+            .block_on(async {
+                if let Some(u) = direct_url.filter(|s| !s.trim().is_empty()) {
+                    Ok(u)
+                } else {
+                    get_archive_format_file(&identifier, ext)
+                        .await?
+                        .ok_or_else(|| format!("Format {} tidak tersedia", ext.to_uppercase()))
+                }
+            })
+            .map_err(|e| BacaError::Message { reason: e })?;
+
+        let id = uuid::Uuid::new_v4().to_string();
+        let dest = Path::new(&self.books_dir).join(format!("{id}.{ext}"));
+        rt.block_on(download_archive_book_with_progress(&identifier, &target, &dest, |_| {}))
+            .map_err(|e| {
+                let _ = std::fs::remove_file(&dest);
+                BacaError::Message { reason: e }
+            })?;
+
+        let dest_str = dest.to_string_lossy().to_string();
+        let now = chrono::Utc::now().timestamp();
+        let book = if ext == "epub" {
+            let parsed = parse_epub(&dest_str).map_err(|e| {
+                let _ = std::fs::remove_file(&dest);
+                BacaError::Message { reason: format!("EPUB tidak valid: {e}") }
+            })?;
+            Book {
+                id,
+                title: if parsed.title.trim().is_empty() { title } else { parsed.title },
+                author: if parsed.author.trim().is_empty() { author } else { parsed.author },
+                file_path: dest_str,
+                format: "epub".to_string(),
+                cover_image: parsed.cover_image,
+                total_chapters: parsed.chapters.len(),
+                current_chapter: 0,
+                progress_percent: 0.0,
+                last_read_at: 0,
+                created_at: now,
+            }
+        } else {
+            Book {
+                id,
+                title,
+                author,
+                file_path: dest_str,
+                format: "pdf".to_string(),
+                cover_image: None,
+                total_chapters: 1,
+                current_chapter: 0,
+                progress_percent: 0.0,
+                last_read_at: 0,
+                created_at: now,
+            }
+        };
+
+        let db = self.db.lock().map_err(|e| BacaError::Message { reason: e.to_string() })?;
+        db.insert_or_update_book(&book)?;
+        Ok(NativeBook::from(book))
+    }
+
+    pub fn ask_ai(&self, prompt: String, api_key: String, model: String) -> Result<String, BacaError> {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| BacaError::Message { reason: e.to_string() })?;
+        rt.block_on(ask_gemini(&api_key, &model, &prompt))
+            .map_err(|e| BacaError::Message { reason: e })
+    }
+
+    pub fn export_backup_json(&self) -> Result<String, BacaError> {
+        let db = self.db.lock().map_err(|e| BacaError::Message { reason: e.to_string() })?;
+        let backup = db.export_backup()?;
+        serde_json::to_string_pretty(&backup)
+            .map_err(|e| BacaError::Message { reason: format!("Gagal serialisasi backup: {e}") })
+    }
+
+    pub fn import_backup_json(&self, json: String) -> Result<u32, BacaError> {
+        let data: BackupData = serde_json::from_str(&json)
+            .map_err(|e| BacaError::Message { reason: format!("Format backup JSON tidak valid: {e}") })?;
+        let count = data.books.len() as u32;
+        let db = self.db.lock().map_err(|e| BacaError::Message { reason: e.to_string() })?;
+        db.restore_backup(data)?;
+        Ok(count)
+    }
+
+    pub fn check_for_update(&self, current_version: String) -> Result<Option<NativeReleaseInfo>, BacaError> {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| BacaError::Message { reason: e.to_string() })?;
+        let rel = rt
+            .block_on(check_latest_release(&current_version))
+            .map_err(|e| BacaError::Message { reason: e })?;
+        Ok(rel.map(|r| NativeReleaseInfo {
+            tag_name: r.tag_name,
+            version: r.version,
+            name: r.name,
+            body: r.body,
+            html_url: r.html_url,
+            apk_url: r.apk_url,
+        }))
     }
 }

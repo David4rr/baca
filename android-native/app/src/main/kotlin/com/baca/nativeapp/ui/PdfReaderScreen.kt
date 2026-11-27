@@ -5,17 +5,25 @@ import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
@@ -28,8 +36,17 @@ fun PdfReaderScreen(
     book: NativeBook,
     palette: BacaPalette,
     onProgressCommit: (Float) -> Unit,
+    onSessionEnd: (Int) -> Unit,
     onBack: () -> Unit,
 ) {
+    val startTimeMs = remember(book.id) { System.currentTimeMillis() }
+    DisposableEffect(book.id) {
+        onDispose {
+            val elapsedSec = ((System.currentTimeMillis() - startTimeMs) / 1000L).toInt().coerceAtLeast(1)
+            onSessionEnd(elapsedSec)
+        }
+    }
+
     var renderer by remember { mutableStateOf<PdfRenderer?>(null) }
     var pageCount by remember { mutableIntStateOf(0) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
@@ -56,13 +73,36 @@ fun PdfReaderScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Kembali", tint = palette.textPrimary)
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .shadow(4.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.08f))
+                    .clip(CircleShape)
+                    .background(palette.surface)
+                    .border(0.5.dp, palette.border, CircleShape)
+                    .applePressScale()
+                    .clickable(onClick = onBack),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
+                    contentDescription = "Kembali",
+                    tint = palette.textPrimary,
+                )
             }
-            Text(book.title, color = palette.textPrimary, fontSize = 16.sp, modifier = Modifier.weight(1f))
+            Text(
+                text = book.title,
+                fontFamily = FontFamily.Serif,
+                color = palette.textPrimary,
+                fontSize = 17.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
         }
 
         if (errorMsg != null) {
@@ -83,7 +123,7 @@ fun PdfReaderScreen(
             }
 
             Text(
-                "Hal. ${pagerState.currentPage + 1} / $pageCount",
+                "Page ${pagerState.currentPage + 1} of $pageCount",
                 color = palette.textSecondary,
                 fontSize = 12.sp,
                 modifier = Modifier

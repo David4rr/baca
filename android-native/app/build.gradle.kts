@@ -12,8 +12,8 @@ android {
         applicationId = "com.baca.nativeapp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 30500
-        versionName = "3.5.0"
+        versionCode = 30501
+        versionName = "3.5.1"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
